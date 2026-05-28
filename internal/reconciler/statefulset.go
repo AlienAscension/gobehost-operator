@@ -89,6 +89,7 @@ func BuildStatefulSet(gs *gamesv1alpha1.GameServer) (*appsv1.StatefulSet, error)
 	podSpec := corev1.PodSpec{
 		TerminationGracePeriodSeconds: ptr.To(int64(120)),
 		Containers:                    []corev1.Container{container},
+		SecurityContext:               buildPodSecurityContext(gs, a),
 	}
 
 	applyScheduling(gs, &podSpec)
@@ -128,6 +129,10 @@ func buildSecurityContext(gs *gamesv1alpha1.GameServer) *corev1.SecurityContext 
 		RunAsNonRoot: sec.RunAsNonRoot,
 	}
 
+	if sec.RunAsUser != nil {
+		sc.RunAsUser = sec.RunAsUser
+	}
+
 	if sec.DropAllCapabilities == nil || *sec.DropAllCapabilities {
 		sc.Capabilities = &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
@@ -145,6 +150,33 @@ func buildSecurityContext(gs *gamesv1alpha1.GameServer) *corev1.SecurityContext 
 	}
 
 	return sc
+}
+
+func buildPodSecurityContext(gs *gamesv1alpha1.GameServer, a adapter.GameAdapter) *corev1.PodSecurityContext {
+	defaultSC := a.DefaultSecurityContext()
+	if defaultSC == nil {
+		defaultSC = &corev1.PodSecurityContext{}
+	}
+
+	podSC := &corev1.PodSecurityContext{
+		RunAsUser:  defaultSC.RunAsUser,
+		RunAsGroup: defaultSC.RunAsGroup,
+		FSGroup:    defaultSC.FSGroup,
+	}
+
+	if gs.Spec.Security != nil {
+		if gs.Spec.Security.RunAsUser != nil {
+			podSC.RunAsUser = gs.Spec.Security.RunAsUser
+		}
+		if gs.Spec.Security.RunAsGroup != nil {
+			podSC.RunAsGroup = gs.Spec.Security.RunAsGroup
+		}
+		if gs.Spec.Security.FSGroup != nil {
+			podSC.FSGroup = gs.Spec.Security.FSGroup
+		}
+	}
+
+	return podSC
 }
 
 func applyScheduling(gs *gamesv1alpha1.GameServer, podSpec *corev1.PodSpec) {

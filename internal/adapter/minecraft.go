@@ -127,3 +127,11 @@ func (m *MinecraftAdapter) Probes(_ *gamesv1alpha1.GameServer) (*corev1.Probe, *
 func (m *MinecraftAdapter) DataPath(_ *gamesv1alpha1.GameServer) string {
 	return "/data"
 }
+
+func (m *MinecraftAdapter) DefaultSecurityContext() *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
+		RunAsUser:  ptr.To(int64(1000)),
+		RunAsGroup: ptr.To(int64(1000)),
+		FSGroup:    ptr.To(int64(1000)),
+	}
+}

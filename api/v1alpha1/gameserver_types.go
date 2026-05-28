@@ -218,6 +218,19 @@ type SecuritySpec struct {
 	// +optional
 	RunAsNonRoot *bool `json:"runAsNonRoot,omitempty"`
 
+	// runAsUser is the UID to run the container process as.
+	// When runAsNonRoot is true, this should be set to a non-zero UID.
+	// +optional
+	RunAsUser *int64 `json:"runAsUser,omitempty"`
+
+	// runAsGroup is the GID to run the container process as.
+	// +optional
+	RunAsGroup *int64 `json:"runAsGroup,omitempty"`
+
+	// fsGroup is the GID for mounted volumes.
+	// +optional
+	FSGroup *int64 `json:"fsGroup,omitempty"`
+
 	// readOnlyRootFilesystem enforces a read-only root filesystem.
 	// +optional
 	ReadOnlyRootFilesystem *bool `json:"readOnlyRootFilesystem,omitempty"`

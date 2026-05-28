@@ -29,4 +29,5 @@ type GameAdapter interface {
 	Args(gs *gamesv1alpha1.GameServer) []string
 	Probes(gs *gamesv1alpha1.GameServer) (*corev1.Probe, *corev1.Probe)
 	DataPath(gs *gamesv1alpha1.GameServer) string
+	DefaultSecurityContext() *corev1.PodSecurityContext
 }

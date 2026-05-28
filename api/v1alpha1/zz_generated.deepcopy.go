@@ -342,6 +342,21 @@ func (in *SecuritySpec) DeepCopyInto(out *SecuritySpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RunAsUser != nil {
+		in, out := &in.RunAsUser, &out.RunAsUser
+		*out = new(int64)
+		**out = **in
+	}
+	if in.RunAsGroup != nil {
+		in, out := &in.RunAsGroup, &out.RunAsGroup
+		*out = new(int64)
+		**out = **in
+	}
+	if in.FSGroup != nil {
+		in, out := &in.FSGroup, &out.FSGroup
+		*out = new(int64)
+		**out = **in
+	}
 	if in.ReadOnlyRootFilesystem != nil {
 		in, out := &in.ReadOnlyRootFilesystem, &out.ReadOnlyRootFilesystem
 		*out = new(bool)

@@ -1410,14 +1410,29 @@ spec:
                     default: true
                     description: dropAllCapabilities drops all Linux capabilities.
                     type: boolean
+                  fsGroup:
+                    description: fsGroup is the GID for mounted volumes.
+                    format: int64
+                    type: integer
                   readOnlyRootFilesystem:
                     description: readOnlyRootFilesystem enforces a read-only root
                       filesystem.
                     type: boolean
+                  runAsGroup:
+                    description: runAsGroup is the GID to run the container process
+                      as.
+                    format: int64
+                    type: integer
                   runAsNonRoot:
                     default: true
                     description: runAsNonRoot enforces running as non-root.
                     type: boolean
+                  runAsUser:
+                    description: |-
+                      runAsUser is the UID to run the container process as.
+                      When runAsNonRoot is true, this should be set to a non-zero UID.
+                    format: int64
+                    type: integer
                   seccompProfile:
                     default: RuntimeDefault
                     description: seccompProfile type to use.
