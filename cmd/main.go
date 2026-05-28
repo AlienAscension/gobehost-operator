@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	gamesv1alpha1 "github.com/gobehost/operator/api/v1alpha1"
+	_ "github.com/gobehost/operator/internal/adapter"
 	"github.com/gobehost/operator/internal/controller"
 	webhookv1alpha1 "github.com/gobehost/operator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
