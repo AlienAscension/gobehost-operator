@@ -21,8 +21,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +54,31 @@ var _ = Describe("GameServer Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: gamesv1alpha1.GameServerSpec{
+						Game: gamesv1alpha1.GameSpec{
+							Type:    "minecraft",
+							Version: "1.21",
+						},
+						Runtime: gamesv1alpha1.RuntimeSpec{
+							Image:           "itzg/minecraft-server:latest",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+						},
+						Storage: gamesv1alpha1.StorageSpec{
+							Size:        resource.MustParse("10Gi"),
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						},
+						Network: gamesv1alpha1.NetworkSpec{
+							Ports: []gamesv1alpha1.PortSpec{
+								{
+									Name:       "minecraft",
+									Port:       25565,
+									TargetPort: ptr.To(int32(25565)),
+									Protocol:   corev1.ProtocolTCP,
+								},
+							},
+							ServiceType: corev1.ServiceTypeLoadBalancer,
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
