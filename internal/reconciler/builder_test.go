@@ -237,7 +237,7 @@ var _ = Describe("BuildStatefulSet", func() {
 		sts, err := BuildStatefulSet(gs)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sts.Spec.VolumeClaimTemplates).To(HaveLen(1))
-		Expect(sts.Spec.VolumeClaimTemplates[0].Name).To(Equal("test-server-data"))
+		Expect(sts.Spec.VolumeClaimTemplates[0].Name).To(Equal("data"))
 	})
 })
 

@@ -33,6 +33,8 @@ func BuildStatefulSet(gs *gamesv1alpha1.GameServer) (*appsv1.StatefulSet, error)
 	}
 
 	pvc := BuildPVC(gs)
+	pvc.Name = "data"
+	pvc.Namespace = ""
 
 	env := a.Env(gs)
 	env = append(env, gs.Spec.Runtime.Env...)
