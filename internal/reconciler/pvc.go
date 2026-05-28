@@ -18,7 +18,6 @@ package reconciler
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	gamesv1alpha1 "github.com/gobehost/operator/api/v1alpha1"
@@ -51,11 +50,4 @@ func BuildPVC(gs *gamesv1alpha1.GameServer) *corev1.PersistentVolumeClaim {
 	}
 
 	return pvc
-}
-
-func mergeStorageQuantity(existing resource.Quantity, fallback resource.Quantity) resource.Quantity {
-	if existing.IsZero() {
-		return fallback
-	}
-	return existing
 }
