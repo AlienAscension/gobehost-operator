@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= linusdb/gobehost:latest
+VERSION ?= v0.1.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -12,7 +13,7 @@ endif
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
-CONTAINER_TOOL ?= docker
+CONTAINER_TOOL ?= podman
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -122,6 +123,13 @@ docker-build: ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+
+.PHONY: docker-tag
+docker-tag: ## Tag the image with a version.
+	$(CONTAINER_TOOL) tag ${IMG} linusdb/gobehost:${VERSION}
+
+.PHONY: docker-push-version
+docker-push-version: docker-tag docker-push ## Push image with version tag.
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
