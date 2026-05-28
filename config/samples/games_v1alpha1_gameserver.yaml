@@ -1,9 +1,40 @@
 apiVersion: games.gobehost.com/v1alpha1
 kind: GameServer
 metadata:
-  labels:
-    app.kubernetes.io/name: gobehost-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: gameserver-sample
+  name: minecraft-survival
+  namespace: default
 spec:
-  # TODO(user): Add fields here
+  game:
+    type: minecraft
+    version: "1.21"
+    profile: paper
+  runtime:
+    image: itzg/minecraft-server:latest
+    imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  storage:
+    size: 20Gi
+    storageClass: longhorn
+  network:
+    ports:
+      - name: minecraft
+        port: 25565
+        protocol: TCP
+    serviceType: LoadBalancer
+  server:
+    maxPlayers: 20
+    motd: "GobeHost Minecraft Server"
+    difficulty: normal
+    gameMode: survival
+    pvp: false
+    onlineMode: true
+  security:
+    runAsNonRoot: true
+    dropAllCapabilities: true
+    seccompProfile: RuntimeDefault
