@@ -258,6 +258,20 @@ mv "$(LOCALBIN)/$$(basename "$(1)")" "$(1)-$(3)" ;\
 ln -sf "$$(realpath "$(1)-$(3)")" "$(1)"
 endef
 
+##@ Helm
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart.
+	helm lint charts/gobehost-operator/
+
+.PHONY: helm-template
+helm-template: ## Template the Helm chart (dry-run).
+	helm template gobehost-operator charts/gobehost-operator/ --namespace gobehost-operator-system
+
+.PHONY: helm-package
+helm-package: helm-lint ## Package the Helm chart into a .tgz in dist/.
+	helm package charts/gobehost-operator/ -d dist/
+
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
 endef
