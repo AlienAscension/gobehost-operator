@@ -1,0 +1,92 @@
+{{- if .Values.certmanager.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "gobehost-operator.fullname" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gobehost-operator.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "gobehost-operator.fullname" . }}-serving-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gobehost-operator.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - {{ include "gobehost-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ include "gobehost-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "gobehost-operator.fullname" . }}-selfsigned-issuer
+  secretName: webhook-server-cert
+{{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "gobehost-operator.fullname" . }}-mutating-webhook-configuration
+  annotations:
+    {{- if .Values.certmanager.enabled }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "gobehost-operator.fullname" . }}-serving-cert
+    {{- end }}
+  labels:
+    {{- include "gobehost-operator.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "gobehost-operator.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-games-gobehost-com-v1alpha1-gameserver
+  failurePolicy: Fail
+  name: mgameserver-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - games.gobehost.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gameservers
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "gobehost-operator.fullname" . }}-validating-webhook-configuration
+  annotations:
+    {{- if .Values.certmanager.enabled }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "gobehost-operator.fullname" . }}-serving-cert
+    {{- end }}
+  labels:
+    {{- include "gobehost-operator.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "gobehost-operator.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-games-gobehost-com-v1alpha1-gameserver
+  failurePolicy: Fail
+  name: vgameserver-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - games.gobehost.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gameservers
+  sideEffects: None
