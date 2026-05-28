@@ -1,6 +1,6 @@
 # GobeHost Operator
 
-A production-grade Kubernetes operator for managing game server lifecycles. Defines a `GameServer` CRD that declaratively provisions StatefulSets, persistent storage, and networking for any supported game — with graceful shutdown, status conditions, and an extensible game adapter pattern.
+A Kubernetes operator for managing game server lifecycles. Defines a `GameServer` CRD that declaratively provisions StatefulSets, persistent storage, and networking for any supported game — with graceful shutdown, status conditions, and an extensible game adapter pattern.
 
 Currently supports **Minecraft** (vanilla, Paper, Forge, Fabric, Spigot, Bukkit). Designed to grow with adapters for Valheim, CS2, Rust, Terraria, Factorio, ARK, and custom containerized servers.
 
