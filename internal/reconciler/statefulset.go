@@ -125,8 +125,10 @@ func buildSecurityContext(gs *gamesv1alpha1.GameServer) *corev1.SecurityContext 
 		sec = &gamesv1alpha1.SecuritySpec{}
 	}
 
-	sc := &corev1.SecurityContext{
-		RunAsNonRoot: sec.RunAsNonRoot,
+	sc := &corev1.SecurityContext{}
+
+	if sec.RunAsNonRoot != nil {
+		sc.RunAsNonRoot = sec.RunAsNonRoot
 	}
 
 	if sec.RunAsUser != nil {

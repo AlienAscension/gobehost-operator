@@ -85,6 +85,15 @@ func (d *GameServerCustomDefaulter) Default(_ context.Context, obj *gamesv1alpha
 	if spec.Security.RunAsNonRoot == nil {
 		spec.Security.RunAsNonRoot = ptr.To(true)
 	}
+	if spec.Security.RunAsUser == nil {
+		spec.Security.RunAsUser = ptr.To(int64(1000))
+	}
+	if spec.Security.RunAsGroup == nil {
+		spec.Security.RunAsGroup = ptr.To(int64(1000))
+	}
+	if spec.Security.FSGroup == nil {
+		spec.Security.FSGroup = ptr.To(int64(1000))
+	}
 	if spec.Security.SeccompProfile == "" {
 		spec.Security.SeccompProfile = corev1.SeccompProfileTypeRuntimeDefault
 	}

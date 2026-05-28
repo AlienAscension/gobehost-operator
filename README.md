@@ -1,135 +1,179 @@
-# gobehost-operator
-// TODO(user): Add simple overview of use/purpose
+# GobeHost Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+A production-grade Kubernetes operator for managing game server lifecycles. Defines a `GameServer` CRD that declaratively provisions StatefulSets, persistent storage, and networking for any supported game — with graceful shutdown, status conditions, and an extensible game adapter pattern.
 
-## Getting Started
+Currently supports **Minecraft** (vanilla, Paper, Forge, Fabric, Spigot, Bukkit). Designed to grow with adapters for Valheim, CS2, Rust, Terraria, Factorio, ARK, and custom containerized servers.
 
-### Prerequisites
-- go version v1.24.6+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## Features
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+- **GameServer CRD** — declare a game server instance with game type, version, resources, storage, networking, and server config
+- **Automatic provisioning** — StatefulSet, PVC, headless Service, and external Service created and managed by the controller
+- **Game adapter pattern** — each game plugs in via a simple interface; add new games without touching the controller
+- **Graceful shutdown** — finalizers ensure StatefulSets scale down cleanly before deletion
+- **Status conditions** — `Ready`, `Provisioning`, `Phase` tracking via Kubernetes-standard conditions
+- **Defaulting & validation webhooks** — sane defaults and immutability guarantees
+- **Security by default** — runs as non-root (UID 1000), drops all capabilities, seccomp=RuntimeDefault
+- **Helm chart** — install with a single `helm install`
 
-```sh
-make docker-build docker-push IMG=<some-registry>/gobehost-operator:tag
+## Quick Start
+
+### Helm (recommended)
+
+```bash
+helm install gobehost-operator charts/gobehost-operator/ \
+  --namespace gobehost-operator-system \
+  --create-namespace
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+### Non-Helm (single YAML)
 
-**Install the CRDs into the cluster:**
-
-```sh
-make install
+```bash
+kubectl apply -f dist/install.yaml
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+### Create a Minecraft server
 
-```sh
-make deploy IMG=<some-registry>/gobehost-operator:tag
+```bash
+kubectl apply -f config/samples/games_v1alpha1_gameserver.yaml
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+Check status:
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
+```bash
+kubectl get gameserver
+kubectl describe gameserver minecraft-survival
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+### Clean up
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+```bash
+kubectl delete gameserver minecraft-survival
+helm uninstall gobehost-operator -n gobehost-operator-system
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+## GameServer Example
 
-```sh
-make uninstall
+```yaml
+apiVersion: games.gobehost.com/v1alpha1
+kind: GameServer
+metadata:
+  name: minecraft-survival
+spec:
+  game:
+    type: minecraft
+    version: "1.21"
+    profile: paper
+  runtime:
+    image: itzg/minecraft-server:latest
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  storage:
+    size: 20Gi
+    storageClass: longhorn
+  network:
+    ports:
+      - name: minecraft
+        port: 25565
+        protocol: TCP
+    serviceType: LoadBalancer
+  server:
+    maxPlayers: 20
+    motd: "GobeHost Minecraft Server"
+    gameMode: survival
+    pvp: false
+    onlineMode: true
+  security:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    dropAllCapabilities: true
+    seccompProfile: RuntimeDefault
 ```
 
-**UnDeploy the controller from the cluster:**
+## Prerequisites
 
-```sh
-make undeploy
+- Kubernetes 1.31+
+- [cert-manager](https://cert-manager.io/) (for webhook TLS)
+- Go 1.26+ (for development)
+- podman or docker (for building images)
+
+## Development
+
+```bash
+# Run tests
+make test
+
+# Run locally (against current kubeconfig)
+make run
+
+# Build container image
+make docker-build IMG=linusdb/gobehost:v0.1.0
+make docker-push IMG=linusdb/gobehost:v0.1.0
+
+# Regenerate CRDs after editing types
+make manifests generate
+
+# Lint
+make lint-fix
 ```
+
+## Adding a Game Adapter
+
+1. Implement the `GameAdapter` interface in `internal/adapter/`:
+
+```go
+type GameAdapter interface {
+    Name() string
+    Env(gs *gamesv1alpha1.GameServer) []corev1.EnvVar
+    Command(gs *gamesv1alpha1.GameServer) []string
+    Args(gs *gamesv1alpha1.GameServer) []string
+    Probes(gs *gamesv1alpha1.GameServer) (*corev1.Probe, *corev1.Probe)
+    DataPath(gs *gamesv1alpha1.GameServer) string
+    DefaultSecurityContext() *corev1.PodSecurityContext
+}
+```
+
+2. Register it with `init()` — see `internal/adapter/minecraft.go`
+
+3. Add the game type to the webhook validation allowlist (optional)
 
 ## Project Distribution
 
-Following the options to release and provide this solution to the users.
+### Build the install bundle
 
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/gobehost-operator:tag
+```bash
+make build-installer IMG=linusdb/gobehost:v0.1.0
 ```
 
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
+Generates `dist/install.yaml` — a single YAML with CRDs, RBAC, Deployment, and Webhooks.
 
-2. Using the installer
+### Package the Helm chart
 
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/gobehost-operator/<tag or branch>/dist/install.yaml
+```bash
+make helm-package
 ```
 
-### By providing a Helm Chart
+Outputs `dist/gobehost-operator-0.1.0.tgz`.
 
-1. Build the chart using the optional helm plugin
+## Architecture
 
-```sh
-kubebuilder edit --plugins=helm/v2-alpha
 ```
-
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+GameServer CR
+      │
+      ▼
+GameServerReconciler
+      │
+      ├─► GameAdapter (minecraft, valheim, ...)
+      │       └─► Env vars, probes, data path, security context
+      │
+      ├─► BuildPVC ──► PersistentVolumeClaim
+      ├─► BuildService ──► Service (LoadBalancer/NodePort)
+      ├─► BuildHeadlessService ──► Service (ClusterIP: None)
+      └─► BuildStatefulSet ──► StatefulSet (1 replica)
+```
