@@ -61,7 +61,7 @@ metadata:
 spec:
   game:
     type: minecraft
-    version: "1.21"
+    version: "26.1.2"
     profile: paper
   runtime:
     image: itzg/minecraft-server:latest
