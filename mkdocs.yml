@@ -1,0 +1,75 @@
+site_name: GobeHost Operator
+site_description: Kubernetes operator for managing game servers
+site_url: https://alienascension.github.io/gobehost-operator/
+repo_name: AlienAscension/gobehost-operator
+repo_url: https://github.com/AlienAscension/gobehost-operator
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+  - CRD Reference:
+    - GameServer: crd/gameserver.md
+    - GameServerFleet: crd/gameserverfleet.md
+  - Guides:
+    - Deploying Minecraft: guides/minecraft.md
+    - Rolling Updates: guides/rolling-updates.md
+    - Adding Game Adapters: guides/custom-game.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Adapter Pattern: architecture/adapters.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search

@@ -31,3 +31,6 @@ go.work
 
 # Internal planning docs (not for distribution)
 docs/superpowers/
+
+# MkDocs build output
+site/
