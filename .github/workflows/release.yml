@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          IMG=linusdb/gobehost:${TAG}
+          make docker-build IMG=${IMG}
+          make docker-push IMG=${IMG}
+          docker tag ${IMG} linusdb/gobehost:latest
+          docker push linusdb/gobehost:latest
