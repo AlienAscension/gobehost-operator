@@ -9,7 +9,7 @@ Kubernetes operator for managing game servers. Built with kubebuilder 4.13.1, Go
 - **Domain**: `gobehost.com`
 - **Repo**: `github.com/gobehost/operator`
 - **Git remote**: `git@github.com:AlienAscension/gobehost-operator.git`
-- **Container image**: `linusdb/gobehost:v0.1.0` (also `latest`)
+- **Container image**: `linusdb/gobehost:v0.2.0` (also `latest`)
 - **Container tool**: podman (not docker)
 - **Cluster**: Talos Linux, Cilium CNI, Traefik ingress, Longhorn storage, FluxCD
 
@@ -28,7 +28,7 @@ A working Minecraft server is deployed and accessible at `192.168.0.200:25565`.
 | Decision | Rationale |
 |---|---|
 | Manual Helm chart (not kubebuilder plugin) | User preference |
-| Podman for builds | User preference |
+| Podman for builds | User preference; CI uses Docker |
 | `runAsNonRoot: true` with UID/GID/FSGroup 1000 | Matches itzg container UID |
 | No `dropAllCapabilities: true` in sample | Caused spark profiler JVM SIGSEGV |
 | `itzg/minecraft-server:java25` | MC 26.1.2 requires Java 25 |
@@ -36,6 +36,7 @@ A working Minecraft server is deployed and accessible at `192.168.0.200:25565`.
 | `VERSION` env = MC game version (e.g. "26.1.2") | Paper build selected automatically or via `PAPER_BUILD` env |
 | `docs/superpowers/` gitignored | Internal planning, not for distribution |
 | GameServerFleet stable Service | Fleet owns a Service named after the fleet, updated at cutover time; decouples routing from GameServer lifecycle |
+| Helm chart published on GitHub Pages | chart .tgz and index.yaml at `/charts/` alongside MkDocs docs site |
 
 ## Project Structure
 
@@ -71,6 +72,12 @@ config/
     minecraft-ingressroute.yaml      Traefik IngressRouteTCP for minecraft
   rbac/role.yaml                     Generated RBAC (DO NOT EDIT)
 dist/install.yaml                    Non-Helm installation bundle
+.github/workflows/
+  lint.yml                           golangci-lint on PR/push
+  test.yml                           Unit tests on PR/push
+  test-e2e.yml                       E2E tests with Kind cluster
+  docs.yml                           MkDocs site + Helm chart published to GitHub Pages
+  release.yml                        Build & push container image on v* tags
 ```
 
 ## Auto-Generated Files (NEVER EDIT)
@@ -134,10 +141,16 @@ make manifests generate
 make test
 
 # Build & push container
-make docker-build docker-push IMG=linusdb/gobehost:v0.1.0
+make docker-build docker-push IMG=linusdb/gobehost:v0.2.0
+
+# Versioned release (build, tag, push, sync chart)
+make docker-push-version VERSION=v0.2.0
+
+# Update chart references to current VERSION
+make chart-sync-version VERSION=v0.3.0
 
 # Deploy to cluster
-make deploy IMG=linusdb/gobehost:v0.1.0
+make deploy IMG=linusdb/gobehost:v0.2.0
 
 # Apply CRDs (after schema changes)
 kubectl apply --server-side --force-conflicts -k config/crd
@@ -178,6 +191,21 @@ The controller has RBAC for:
 | MC 1.21.5 "outdated server" error | Updated to MC 26.1.2 + Java 25 image |
 | World format migration MC 1.21.5→26.1.2 | Automatic on first boot (WorldFolderMigration) |
 | `make test` exit code 1 | `covdata` tool not found; tests themselves all pass |
+| E2E: kind load docker-image failed on CI | Changed to `kind load image-archive` (save→tarball→load), compatible with docker + podman |
+| Helm install: webhooks.yaml YAML parse error | Fixed missing apiVersion/kind, indentation, and orphaned vgameserverfleet webhook |
+| Lint: errcheck on deferred cleanup calls | Assigned to `_` in test utils |
+
+## Release Process
+
+1. Update chart and commit: `make chart-sync-version VERSION=v0.3.0 && git commit -am "chore: bump to v0.3.0"`
+2. Tag: `git tag v0.3.0`
+3. Push: `git push origin main --tags`
+4. CI (`release.yml`) builds and pushes `linusdb/gobehost:v0.3.0` + `:latest` to Docker Hub
+5. CI (`docs.yml`) publishes updated Helm chart to GitHub Pages
+
+**Required secrets** (repo Settings → Secrets and variables → Actions):
+- `DOCKERHUB_USERNAME` — Docker Hub username
+- `DOCKERHUB_TOKEN` — Docker Hub access token
 
 ## Next Steps (Ideas)
 
