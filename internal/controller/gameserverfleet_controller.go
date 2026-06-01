@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -480,7 +482,7 @@ func (r *GameServerFleetReconciler) ensureFleetService(ctx context.Context, flee
 		svc.Spec.Selector = reconciler.GameServerLabels(gs)
 		svc.Spec.Type = gs.Spec.Network.ServiceType
 		svc.Spec.Ports = buildServicePorts(gs)
-		svc.ObjectMeta.Annotations = gs.Spec.Network.Annotations
+		svc.Annotations = gs.Spec.Network.Annotations
 		return nil
 	})
 	if err != nil {
@@ -492,7 +494,7 @@ func (r *GameServerFleetReconciler) ensureFleetService(ctx context.Context, flee
 	return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
 }
 
-func (r *GameServerFleetReconciler) updateFleetServiceSelector(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, gs *gamesv1alpha1.GameServer, svc *corev1.Service) error {
+func (r *GameServerFleetReconciler) updateFleetServiceSelector(ctx context.Context, _ *gamesv1alpha1.GameServerFleet, gs *gamesv1alpha1.GameServer, svc *corev1.Service) error {
 	patched := svc.DeepCopy()
 	patched.Spec.Selector = reconciler.GameServerLabels(gs)
 	return r.Patch(ctx, patched, client.MergeFrom(svc))
@@ -526,12 +528,8 @@ func (r *GameServerFleetReconciler) buildGameServer(fleet *gamesv1alpha1.GameSer
 		Spec: template.Spec,
 	}
 
-	for k, v := range template.Labels {
-		gs.Labels[k] = v
-	}
-	for k, v := range template.Annotations {
-		gs.Annotations[k] = v
-	}
+	maps.Copy(gs.Labels, template.Labels)
+	maps.Copy(gs.Annotations, template.Annotations)
 	gs.Labels[gamesv1alpha1.FleetNameLabel] = fleet.Name
 	gs.Annotations[gamesv1alpha1.TemplateHashAnnotation] = computeTemplateHash(template)
 
@@ -608,12 +606,7 @@ func (r *GameServerFleetReconciler) addFinalizer(ctx context.Context, fleet *gam
 }
 
 func hasFleetFinalizer(fleet *gamesv1alpha1.GameServerFleet) bool {
-	for _, f := range fleet.Finalizers {
-		if f == gamesv1alpha1.GameServerFleetFinalizer {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(fleet.Finalizers, gamesv1alpha1.GameServerFleetFinalizer)
 }
 
 func computeTemplateHash(template gamesv1alpha1.GameServerTemplate) string {
@@ -659,12 +652,7 @@ func removeString(slice []string, s string) []string {
 }
 
 func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, s)
 }
 
 func buildServicePorts(gs *gamesv1alpha1.GameServer) []corev1.ServicePort {
