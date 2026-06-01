@@ -112,6 +112,8 @@ var _ = BeforeSuite(func() {
 	err = SetupGameServerWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupGameServerFleetWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

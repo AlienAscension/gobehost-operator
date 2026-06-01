@@ -1,0 +1,41 @@
+apiVersion: games.gobehost.com/v1alpha1
+kind: GameServerFleet
+metadata:
+  name: minecraft-survival
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  template:
+    spec:
+      game:
+        type: minecraft
+        version: "26.1.2"
+        profile: paper
+      runtime:
+        image: itzg/minecraft-server:java25
+        env:
+          - name: PAPER_BUILD
+            value: "66"
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      storage:
+        size: 10Gi
+        storageClass: longhorn
+      network:
+        ports:
+          - name: minecraft
+            port: 25565
+            protocol: TCP
+        serviceType: LoadBalancer
+      security:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000

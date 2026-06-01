@@ -74,3 +74,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - games.gobehost.com
+  resources:
+  - gameserverfleets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - games.gobehost.com
+  resources:
+  - gameserverfleets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - games.gobehost.com
+  resources:
+  - gameserverfleets/status
+  verbs:
+  - get
+  - patch
+  - update

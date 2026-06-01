@@ -50,6 +50,7 @@ rules:
 - apiGroups:
   - games.gobehost.com
   resources:
+  - gameserverfleets
   - gameservers
   verbs:
   - create
@@ -62,12 +63,14 @@ rules:
 - apiGroups:
   - games.gobehost.com
   resources:
+  - gameserverfleets/finalizers
   - gameservers/finalizers
   verbs:
   - update
 - apiGroups:
   - games.gobehost.com
   resources:
+  - gameserverfleets/status
   - gameservers/status
   verbs:
   - get

@@ -6,11 +6,14 @@ metadata:
 spec:
   game:
     type: minecraft
-    version: "1.21"
+    version: "26.1.2"
     profile: paper
   runtime:
-    image: itzg/minecraft-server:latest
+    image: itzg/minecraft-server:java25
     imagePullPolicy: IfNotPresent
+    env:
+      - name: PAPER_BUILD
+        value: "66"
   resources:
     requests:
       cpu: 500m
@@ -39,5 +42,4 @@ spec:
     runAsUser: 1000
     runAsGroup: 1000
     fsGroup: 1000
-    dropAllCapabilities: true
     seccompProfile: RuntimeDefault
