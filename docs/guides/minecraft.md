@@ -37,6 +37,21 @@ spec:
     fsGroup: 1000
 ```
 
+## Server Implementations (`profile`)
+
+The `profile` field selects **which server implementation** to run. These are mutually exclusive — pick one per GameServer. The operator maps `profile` to the `TYPE` environment variable consumed by the [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) Docker image, which downloads and runs the corresponding server jar.
+
+| `profile` value | `TYPE` env var | Server | Description |
+|---|---|---|---|
+| _(empty)_ | `VANILLA` | Mojang Vanilla | Official unmodded server |
+| `paper` | `PAPER` | [PaperMC](https://papermc.io/) | High-performance fork of Spigot; best for most production servers |
+| `spigot` | `SPIGOT` | [Spigot](https://www.spigotmc.org/) | Moddable server API with plugin support |
+| `bukkit` | `BUKKIT` | [Bukkit](https://dev.bukkit.org/) | Original plugin API (predecessor of Spigot) |
+| `forge` | `FORGE` | [Minecraft Forge](https://minecraftforge.net/) | Mod loader for deep Java mods |
+| `fabric` | `FABRIC` | [Fabric](https://fabricmc.net/) | Lightweight mod loader |
+
+The lineage is Bukkit → Spigot → Paper (each forked from the previous). Paper, Spigot, and Bukkit support **plugins** (Bukkit/Spigot plugin API). Forge and Fabric support **mods** (deeper game modifications that add blocks, items, dimensions, etc.).
+
 ## Paper Minecraft with Custom Build
 
 Use the `profile` field to select a server implementation and `env` for additional configuration:
