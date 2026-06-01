@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= linusdb/gobehost:latest
-VERSION ?= v0.1.0
+VERSION ?= v0.2.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -129,7 +129,7 @@ docker-tag: ## Tag the image with a version.
 	$(CONTAINER_TOOL) tag ${IMG} linusdb/gobehost:${VERSION}
 
 .PHONY: docker-push-version
-docker-push-version: docker-tag docker-push ## Push image with version tag.
+docker-push-version: docker-tag docker-push chart-sync-version ## Push image with version tag and update chart reference.
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -271,6 +271,11 @@ helm-template: ## Template the Helm chart (dry-run).
 .PHONY: helm-package
 helm-package: helm-lint ## Package the Helm chart into a .tgz in dist/.
 	helm package charts/gobehost-operator/ -d dist/
+
+.PHONY: chart-sync-version
+chart-sync-version: ## Update chart values.yaml and Chart.yaml to reflect current VERSION.
+	sed -i 's/^  tag: .*/  tag: "$(VERSION)"/' charts/gobehost-operator/values.yaml
+	sed -i 's/^appVersion: .*/appVersion: $(VERSION)/' charts/gobehost-operator/Chart.yaml
 
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
