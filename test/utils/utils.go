@@ -156,8 +156,8 @@ func LoadImageToKindClusterWithName(name string) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	By(fmt.Sprintf("Saving image %s to archive with %s", name, containerTool))
 	saveCmd := exec.Command(containerTool, "save", "-o", tmpPath, name)
