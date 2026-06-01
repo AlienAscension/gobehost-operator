@@ -67,7 +67,39 @@ webhooks:
       path: /mutate-games-gobehost-com-v1alpha1-gameserverfleet
   failurePolicy: Fail
   name: mgameserverfleet-v1alpha1.kb.io
-rules:
+  rules:
+  - apiGroups:
+    - games.gobehost.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gameserverfleets
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "gobehost-operator.fullname" . }}-validating-webhook-configuration
+  annotations:
+    {{- if .Values.certmanager.enabled }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "gobehost-operator.fullname" . }}-serving-cert
+    {{- end }}
+  labels:
+    {{- include "gobehost-operator.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "gobehost-operator.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-games-gobehost-com-v1alpha1-gameserver
+  failurePolicy: Fail
+  name: vgameserver-v1alpha1.kb.io
+  rules:
   - apiGroups:
     - games.gobehost.com
     apiVersions:
@@ -97,33 +129,4 @@ rules:
     - UPDATE
     resources:
     - gameserverfleets
-  sideEffects: None
-metadata:
-  name: {{ include "gobehost-operator.fullname" . }}-validating-webhook-configuration
-  annotations:
-    {{- if .Values.certmanager.enabled }}
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "gobehost-operator.fullname" . }}-serving-cert
-    {{- end }}
-  labels:
-    {{- include "gobehost-operator.labels" . | nindent 4 }}
-webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: {{ include "gobehost-operator.fullname" . }}-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-games-gobehost-com-v1alpha1-gameserver
-  failurePolicy: Fail
-  name: vgameserver-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - games.gobehost.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - gameservers
   sideEffects: None
