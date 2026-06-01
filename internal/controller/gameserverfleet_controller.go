@@ -642,13 +642,7 @@ func setFleetCondition(fleet *gamesv1alpha1.GameServerFleet, condType string, st
 }
 
 func removeString(slice []string, s string) []string {
-	result := make([]string, 0, len(slice))
-	for _, item := range slice {
-		if item != s {
-			result = append(result, item)
-		}
-	}
-	return result
+	return slices.DeleteFunc(slice, func(item string) bool { return item == s })
 }
 
 func containsString(slice []string, s string) bool {
