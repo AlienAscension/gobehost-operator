@@ -1,6 +1,6 @@
 # GobeHost Operator - Project State
 
-_Last updated: 2026-06-01_
+_Last updated: 2026-06-03_
 
 ## Project Overview
 
@@ -9,8 +9,8 @@ Kubernetes operator for managing game servers. Built with kubebuilder 4.13.1, Go
 - **Domain**: `gobehost.com`
 - **Repo**: `github.com/gobehost/operator`
 - **Git remote**: `git@github.com:AlienAscension/gobehost-operator.git`
-- **Container image**: `linusdb/gobehost:v0.2.0` (also `latest`)
-- **Container tool**: podman (not docker)
+- **Container image**: `linusdb/gobehost:v0.3.0` (also `latest`)
+- **Container tool**: podman (not docker; CI uses Docker)
 - **Cluster**: Talos Linux, Cilium CNI, Traefik ingress, Longhorn storage, FluxCD
 
 ## Live Deployment
@@ -108,17 +108,17 @@ status:
   readyReplicas: 0|1
   conditions: []metav1.Condition
   currentGameServer: string       # name of active GS
-  updatedGameServer: string       # name of incoming GS during rollout
   history: []RolloutRecord        # last 10 completed rollouts
 ```
 
-**Rolling update state machine**:
-1. Template hash changes → create new GS with hash-suffixed name
-2. Annotate fleet with `update-phase: waiting-for-ready`
-3. New GS ready → annotate old GS with `drain: true`, set `update-phase: draining-old`
-4. Old GS stopped/deleted → complete cutover, update stable Service selector, record history
+**Update flow** (v0.3.0+):
+1. Template hash changes → fleet updates existing GS spec in-place
+2. GS controller propagates spec changes to StatefulSet → pod restarts with new config
+3. PVC stays attached (same StatefulSet name)
+4. Fleet Service IP/selector unchanged (same GS)
+5. GS ready → fleet marks update complete, records history
 
-**Stable Service**: Fleet owns a Service named after the fleet. Selector points to the active GameServer. Updated at cutover time to point to the new GS.
+**Key insight**: This preserves game data across updates because the PVC name (`data-<gs-name>-0`) doesn't change. The previous approach created a new GS with hash-suffixed name, resulting in a new PVC and data loss.
 
 ## Test Coverage
 
@@ -141,10 +141,10 @@ make manifests generate
 make test
 
 # Build & push container
-make docker-build docker-push IMG=linusdb/gobehost:v0.2.0
+make docker-build docker-push IMG=linusdb/gobehost:v0.3.0
 
 # Versioned release (build, tag, push, sync chart)
-make docker-push-version VERSION=v0.2.0
+make docker-push-version VERSION=v0.3.0
 
 # Update chart references to current VERSION
 make chart-sync-version VERSION=v0.3.0
@@ -194,6 +194,9 @@ The controller has RBAC for:
 | E2E: kind load docker-image failed on CI | Changed to `kind load image-archive` (save→tarball→load), compatible with docker + podman |
 | Helm install: webhooks.yaml YAML parse error | Fixed missing apiVersion/kind, indentation, and orphaned vgameserverfleet webhook |
 | Lint: errcheck on deferred cleanup calls | Assigned to `_` in test utils |
+| GS spec changes not propagating to child resources | Populated CreateOrUpdate mutate functions with desired-state sync |
+| Fleet rolling update losing PVC data | Changed to in-place GS spec updates — same STS name, same PVC |
+| Lint: gocyclo 32 > 30 in handleSteadyState | Extracted helpers: startSpecUpdate, completeUpdate, handleFailedGS, etc. |
 
 ## Release Process
 

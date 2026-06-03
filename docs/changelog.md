@@ -2,6 +2,31 @@
 
 All notable changes to the GobeHost Operator are documented here.
 
+## v0.3.0 - 2026-06-03
+
+### Fixed
+
+- **GameServer spec propagation**: `CreateOrUpdate` mutate functions were empty, meaning spec changes (image, env, resources, ports, security) were never applied to StatefulSet/Services after initial creation. Populated with proper desired-state sync.
+- **Fleet rolling update preserves data**: Previously created a new GameServer with hash-suffixed name, which spawned a new StatefulSet with a new PVC — game data was lost during updates. Now updates the existing GameServer spec in-place: same StatefulSet, same PVC.
+- **Helm webhooks.yaml YAML structure**: Fixed missing apiVersion/kind for ValidatingWebhookConfiguration, incorrect indentation on rules block, orphaned vgameserverfleet webhook, and wrong resource reference (gameservers → gameserverfleets).
+- **E2E image loading**: Changed from `kind load docker-image` (broken on CI) to save-then-archive pattern for reliable cross-runtime loading.
+
+### Removed
+
+- **Standalone PVC creation**: The GS controller was creating a PVC (`{name}-data`) that was never mounted by the pod. The actual data PVC comes from the StatefulSet's VolumeClaimTemplate. Removed to avoid confusion.
+
+### Changed
+
+- **Fleet rolling update simplified**: Replaced the multi-phase state machine (waiting-for-ready → draining-old → complete) with direct in-place spec updates. `UpdatedGameServer` field and `UpdatePhaseAnnotation` are no longer used.
+- **Refactored for lint**: Extracted `startSpecUpdate`, `completeUpdate`, `handleFailedGS`, `patchTemplateHash`, and `findCurrentGS` helpers from `handleSteadyState` to reduce cyclomatic complexity.
+- **Helm chart published on GitHub Pages**: chart .tgz and index.yaml deployed alongside MkDocs docs site at `/charts/`.
+
+### Added
+
+- **Release workflow** (`.github/workflows/release.yml`): CI builds and pushes container image on `v*` tags.
+- **`chart-sync-version` Makefile target**: Syncs chart `values.yaml` tag and `Chart.yaml` version/appVersion.
+- **E2E lint fix**: Suppressed `errcheck` warnings on deferred cleanup calls in test utils.
+
 ## v0.2.0 - 2026-06-01
 
 ### Added
