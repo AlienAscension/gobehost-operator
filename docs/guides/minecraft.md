@@ -130,7 +130,7 @@ ports:
 
 ## Using GameServerFleet for Lifecycle Management
 
-Wrap your Minecraft server in a fleet for rolling updates:
+Wrap your Minecraft server in a fleet for managed updates:
 
 ```yaml
 apiVersion: games.gobehost.com/v1alpha1
@@ -141,6 +141,10 @@ spec:
   replicas: 1
   strategy:
     type: RollingUpdate
+  gracefulShutdown:
+    enabled: true
+    countdownSeconds: 5
+    rconPort: 25575
   template:
     spec:
       game:
@@ -148,17 +152,62 @@ spec:
         version: "26.1.2"
       runtime:
         image: itzg/minecraft-server:java25
+        env:
+          - name: EULA
+            value: "TRUE"
+          - name: RCON_PASSWORD
+            value: "your-secure-password"
       storage:
         size: 20Gi
+        storageClass: longhorn
       network:
         ports:
           - name: minecraft
             port: 25565
             protocol: TCP
         serviceType: LoadBalancer
+      security:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
 ```
 
-Update the game version by editing `spec.template.spec.game.version`. The fleet controller handles the rolling update automatically.
+### How Updates Work (v0.3.0+)
+
+Editing `spec.template` triggers an **in-place update**:
+
+1. Fleet detects template hash changed
+2. If `gracefulShutdown.enabled`, sends RCON countdown to players (`say Server restarting in 5...`)
+3. Fleet updates the existing GameServer spec in-place
+4. GS controller propagates changes to the StatefulSet
+5. Pod restarts with new configuration — **same PVC, same IP**
+
+Key benefits over the previous approach:
+- Game data (world, plugins, configs) is preserved — the same PVC stays attached
+- Fleet Service IP does not change
+- No additional GameServers are created during the update
+
+### Graceful Shutdown via RCON
+
+To warn players before an update, enable `gracefulShutdown`:
+
+```yaml
+spec:
+  gracefulShutdown:
+    enabled: true
+    countdownSeconds: 10   # 10-second warning before restart
+    rconPort: 25575        # default Minecraft RCON port
+```
+
+The operator:
+1. Connects to `<gs-name>-headless.<namespace>.svc.cluster.local:25575`
+2. Authenticates with `RCON_PASSWORD` from the runtime env
+3. Sends: `say Server restarting for update in 10 seconds`
+4. Counts down: `say Server restarting in 9...`, `8...`, etc.
+5. Proceeds with the update
+
+If RCON fails (wrong password, server not ready), the update proceeds anyway — the countdown is best-effort.
 
 ## Troubleshooting
 
