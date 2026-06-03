@@ -85,90 +85,24 @@ func (r *GameServerFleetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 func (r *GameServerFleetReconciler) handleSteadyState(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, gsList *gamesv1alpha1.GameServerList) (ctrl.Result, error) {
-	log := logf.FromContext(ctx)
-
-	var currentGS *gamesv1alpha1.GameServer
-	for i := range gsList.Items {
-		gs := gsList.Items[i]
-		if gs.Name == fleet.Status.CurrentGameServer {
-			currentGS = &gs
-			break
-		}
-	}
-
-	if currentGS == nil && len(gsList.Items) == 1 {
-		currentGS = &gsList.Items[0]
-	} else if currentGS == nil && len(gsList.Items) == 0 {
+	currentGS := findCurrentGS(fleet, gsList)
+	if currentGS == nil && len(gsList.Items) == 0 {
 		return r.createGameServer(ctx, fleet)
-	} else if currentGS == nil {
-		currentGS = &gsList.Items[0]
 	}
 
 	if currentGS.Status.Phase == gamesv1alpha1.GameServerPhaseFailed {
-		log.Info("GameServer in Failed phase, deleting and recreating", "gameserver", currentGS.Name)
-		if err := r.Delete(ctx, currentGS); err != nil && !errors.IsNotFound(err) {
-			log.Error(err, "Failed to delete failed GameServer")
-			return ctrl.Result{}, err
-		}
-		fleet.Status.CurrentGameServer = ""
-		fleet.Status.Phase = gamesv1alpha1.FleetProgressing
-		if err := r.Status().Update(ctx, fleet); err != nil {
-			if errors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
+		return r.handleFailedGS(ctx, fleet, currentGS)
 	}
 
 	templateHash := computeTemplateHash(fleet.Spec.Template)
 	currentHash := currentGS.Annotations[gamesv1alpha1.TemplateHashAnnotation]
 
 	if currentHash != "" && currentHash != templateHash {
-		log.Info("Template hash differs, updating GameServer spec in-place", "current", currentHash, "desired", templateHash)
-
-		patchedGS := currentGS.DeepCopy()
-		patchedGS.Spec = fleet.Spec.Template.Spec
-		if patchedGS.Annotations == nil {
-			patchedGS.Annotations = make(map[string]string)
-		}
-		patchedGS.Annotations[gamesv1alpha1.TemplateHashAnnotation] = templateHash
-		if patchedGS.Labels == nil {
-			patchedGS.Labels = make(map[string]string)
-		}
-		for k, v := range fleet.Spec.Template.Labels {
-			patchedGS.Labels[k] = v
-		}
-		patchedGS.Labels[gamesv1alpha1.FleetNameLabel] = fleet.Name
-		if err := r.Update(ctx, patchedGS); err != nil {
-			log.Error(err, "Failed to update GameServer spec")
-			return ctrl.Result{}, err
-		}
-
-		fleet.Status.Phase = gamesv1alpha1.FleetProgressing
-		fleet.Status.History = append(fleet.Status.History, gamesv1alpha1.RolloutRecord{
-			StartedAt:   metav1.Now(),
-			FromVersion: currentGS.Spec.Game.Version,
-			ToVersion:   fleet.Spec.Template.Spec.Game.Version,
-		})
-		setFleetCondition(fleet, gamesv1alpha1.FleetProgressingCondition, metav1.ConditionTrue, "Updating", "GameServer spec updated")
-		if err := r.Status().Update(ctx, fleet); err != nil {
-			if errors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
+		return r.startSpecUpdate(ctx, fleet, currentGS, templateHash)
 	}
 
 	if currentHash == "" {
-		patchedGS := currentGS.DeepCopy()
-		if patchedGS.Annotations == nil {
-			patchedGS.Annotations = make(map[string]string)
-		}
-		patchedGS.Annotations[gamesv1alpha1.TemplateHashAnnotation] = templateHash
-		if err := r.Patch(ctx, patchedGS, client.MergeFrom(currentGS)); err != nil {
-			log.Error(err, "Failed to patch GameServer template hash")
+		if err := r.patchTemplateHash(ctx, currentGS, templateHash); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -177,37 +111,118 @@ func (r *GameServerFleetReconciler) handleSteadyState(ctx context.Context, fleet
 	r.syncStatus(ctx, fleet, currentGS)
 
 	if wasProgressing && currentGS.Status.Ready && fleet.Status.ObservedGeneration >= currentGS.Generation {
-		log.Info("Rolling update completed, GameServer ready", "name", currentGS.Name)
-		fleet.Status.Phase = gamesv1alpha1.FleetAvailable
-		fleet.Status.CurrentGameServer = currentGS.Name
-		fleet.Status.ReadyReplicas = 1
-		setFleetCondition(fleet, gamesv1alpha1.FleetAvailableCondition, metav1.ConditionTrue, "Available", "GameServer is ready")
-		setFleetCondition(fleet, gamesv1alpha1.FleetProgressingCondition, metav1.ConditionFalse, "Available", "Rolling update completed")
-
-		if len(fleet.Status.History) > 0 {
-			lastIdx := len(fleet.Status.History) - 1
-			if fleet.Status.History[lastIdx].CompletedAt == nil {
-				now := metav1.Now()
-				fleet.Status.History[lastIdx].CompletedAt = &now
-				fleet.Status.History[lastIdx].Result = "Success"
-				fleet.Status.History[lastIdx].Message = fmt.Sprintf("Update to version %s completed", currentGS.Spec.Game.Version)
-			}
-			if len(fleet.Status.History) > 10 {
-				fleet.Status.History = fleet.Status.History[len(fleet.Status.History)-10:]
-			}
-		}
-		fleet.Status.ObservedGeneration = fleet.Generation
-		if err := r.Status().Update(ctx, fleet); err != nil {
-			if errors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
-
-		return r.ensureFleetService(ctx, fleet, currentGS)
+		return r.completeUpdate(ctx, fleet, currentGS)
 	}
 
 	return r.ensureFleetService(ctx, fleet, currentGS)
+}
+
+func (r *GameServerFleetReconciler) startSpecUpdate(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, currentGS *gamesv1alpha1.GameServer, templateHash string) (ctrl.Result, error) {
+	log := logf.FromContext(ctx)
+	log.Info("Template hash differs, updating GameServer spec in-place", "current", currentGS.Annotations[gamesv1alpha1.TemplateHashAnnotation], "desired", templateHash)
+
+	patchedGS := currentGS.DeepCopy()
+	patchedGS.Spec = fleet.Spec.Template.Spec
+	if patchedGS.Annotations == nil {
+		patchedGS.Annotations = make(map[string]string)
+	}
+	patchedGS.Annotations[gamesv1alpha1.TemplateHashAnnotation] = templateHash
+	if patchedGS.Labels == nil {
+		patchedGS.Labels = make(map[string]string)
+	}
+	maps.Copy(patchedGS.Labels, fleet.Spec.Template.Labels)
+	patchedGS.Labels[gamesv1alpha1.FleetNameLabel] = fleet.Name
+	if err := r.Update(ctx, patchedGS); err != nil {
+		log.Error(err, "Failed to update GameServer spec")
+		return ctrl.Result{}, err
+	}
+
+	fleet.Status.Phase = gamesv1alpha1.FleetProgressing
+	fleet.Status.History = append(fleet.Status.History, gamesv1alpha1.RolloutRecord{
+		StartedAt:   metav1.Now(),
+		FromVersion: currentGS.Spec.Game.Version,
+		ToVersion:   fleet.Spec.Template.Spec.Game.Version,
+	})
+	setFleetCondition(fleet, gamesv1alpha1.FleetProgressingCondition, metav1.ConditionTrue, "Updating", "GameServer spec updated")
+	if err := r.Status().Update(ctx, fleet); err != nil {
+		if errors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
+}
+
+func (r *GameServerFleetReconciler) completeUpdate(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, currentGS *gamesv1alpha1.GameServer) (ctrl.Result, error) {
+	log := logf.FromContext(ctx)
+	log.Info("Rolling update completed, GameServer ready", "name", currentGS.Name)
+
+	fleet.Status.Phase = gamesv1alpha1.FleetAvailable
+	fleet.Status.CurrentGameServer = currentGS.Name
+	fleet.Status.ReadyReplicas = 1
+	setFleetCondition(fleet, gamesv1alpha1.FleetAvailableCondition, metav1.ConditionTrue, "Available", "GameServer is ready")
+	setFleetCondition(fleet, gamesv1alpha1.FleetProgressingCondition, metav1.ConditionFalse, "Available", "Rolling update completed")
+
+	if len(fleet.Status.History) > 0 {
+		lastIdx := len(fleet.Status.History) - 1
+		if fleet.Status.History[lastIdx].CompletedAt == nil {
+			now := metav1.Now()
+			fleet.Status.History[lastIdx].CompletedAt = &now
+			fleet.Status.History[lastIdx].Result = "Success"
+			fleet.Status.History[lastIdx].Message = fmt.Sprintf("Update to version %s completed", currentGS.Spec.Game.Version)
+		}
+		if len(fleet.Status.History) > 10 {
+			fleet.Status.History = fleet.Status.History[len(fleet.Status.History)-10:]
+		}
+	}
+	fleet.Status.ObservedGeneration = fleet.Generation
+	if err := r.Status().Update(ctx, fleet); err != nil {
+		if errors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	return r.ensureFleetService(ctx, fleet, currentGS)
+}
+
+func (r *GameServerFleetReconciler) handleFailedGS(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, gs *gamesv1alpha1.GameServer) (ctrl.Result, error) {
+	log := logf.FromContext(ctx)
+	log.Info("GameServer in Failed phase, deleting and recreating", "gameserver", gs.Name)
+	if err := r.Delete(ctx, gs); err != nil && !errors.IsNotFound(err) {
+		log.Error(err, "Failed to delete failed GameServer")
+		return ctrl.Result{}, err
+	}
+	fleet.Status.CurrentGameServer = ""
+	fleet.Status.Phase = gamesv1alpha1.FleetProgressing
+	if err := r.Status().Update(ctx, fleet); err != nil {
+		if errors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
+}
+
+func (r *GameServerFleetReconciler) patchTemplateHash(ctx context.Context, gs *gamesv1alpha1.GameServer, templateHash string) error {
+	patchedGS := gs.DeepCopy()
+	if patchedGS.Annotations == nil {
+		patchedGS.Annotations = make(map[string]string)
+	}
+	patchedGS.Annotations[gamesv1alpha1.TemplateHashAnnotation] = templateHash
+	return r.Patch(ctx, patchedGS, client.MergeFrom(gs))
+}
+
+func findCurrentGS(fleet *gamesv1alpha1.GameServerFleet, gsList *gamesv1alpha1.GameServerList) *gamesv1alpha1.GameServer {
+	for i := range gsList.Items {
+		if gsList.Items[i].Name == fleet.Status.CurrentGameServer {
+			return &gsList.Items[i]
+		}
+	}
+	if len(gsList.Items) == 1 {
+		return &gsList.Items[0]
+	}
+	return nil
 }
 
 func (r *GameServerFleetReconciler) createGameServer(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet) (ctrl.Result, error) {
