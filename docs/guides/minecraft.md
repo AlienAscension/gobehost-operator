@@ -173,20 +173,15 @@ spec:
         fsGroup: 1000
 ```
 
-### How Updates Work (v0.3.0+)
+### How Updates Work
 
-Editing `spec.template` triggers an **in-place update**:
+Editing `spec.template` triggers an in-place update:
 
 1. Fleet detects template hash changed
 2. If `gracefulShutdown.enabled`, sends RCON countdown to players (`say Server restarting in 5...`)
-3. Fleet updates the existing GameServer spec in-place
+3. Fleet updates the existing GameServer spec
 4. GS controller propagates changes to the StatefulSet
-5. Pod restarts with new configuration — **same PVC, same IP**
-
-Key benefits over the previous approach:
-- Game data (world, plugins, configs) is preserved — the same PVC stays attached
-- Fleet Service IP does not change
-- No additional GameServers are created during the update
+5. Pod restarts with new configuration — player data, world files, and plugins remain intact on the existing PVC
 
 ### Graceful Shutdown via RCON
 
@@ -217,3 +212,7 @@ If RCON fails (wrong password, server not ready), the update proceeds anyway —
 | Phase stuck at Provisioning | `kubectl logs <name>-0 -c server` |
 | No external IP | `kubectl get svc <name>` - LoadBalancer provisioning may take time |
 | Adapter not found | Ensure `game.type` matches a registered adapter (currently: `minecraft`) |
+
+## Further Reading
+
+- [itzg/docker-minecraft-server documentation](https://docker-minecraft-server.readthedocs.io/) — environment variables, server types, mods, plugins, and all container configuration options
