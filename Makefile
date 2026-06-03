@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= linusdb/gobehost:latest
-VERSION ?= v0.2.0
+VERSION ?= v0.3.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -275,7 +275,8 @@ helm-package: helm-lint ## Package the Helm chart into a .tgz in dist/.
 .PHONY: chart-sync-version
 chart-sync-version: ## Update chart values.yaml and Chart.yaml to reflect current VERSION.
 	sed -i 's/^  tag: .*/  tag: "$(VERSION)"/' charts/gobehost-operator/values.yaml
-	sed -i 's/^appVersion: .*/appVersion: $(VERSION)/' charts/gobehost-operator/Chart.yaml
+	sed -i 's/^version: .*/version: $(shell echo $(VERSION) | sed s/v//)/' charts/gobehost-operator/Chart.yaml
+	sed -i 's/^appVersion: .*/appVersion: "$(shell echo $(VERSION) | sed s/v//)"/' charts/gobehost-operator/Chart.yaml
 
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
