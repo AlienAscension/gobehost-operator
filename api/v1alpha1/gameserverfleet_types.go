@@ -55,8 +55,30 @@ type GameServerFleetSpec struct {
 	// +kubebuilder:default={type:"RollingUpdate"}
 	Strategy UpdateStrategy `json:"strategy,omitempty"`
 
+	// GracefulShutdown sends RCON countdown warnings to players before an update.
+	// Disabled by default. Uses RCON_PASSWORD from the GameServer runtime env.
+	// +optional
+	GracefulShutdown *GracefulShutdownSpec `json:"gracefulShutdown,omitempty"`
+
 	// Template is the GameServer spec to stamp out.
 	Template GameServerTemplate `json:"template"`
+}
+
+// GracefulShutdownSpec configures player warnings before fleet updates.
+type GracefulShutdownSpec struct {
+	// Enabled enables RCON-based countdown warnings.
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled"`
+
+	// CountdownSeconds is the total warning period in seconds.
+	// Warnings are sent at each second. Minimum 3s.
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=3
+	CountdownSeconds int32 `json:"countdownSeconds,omitempty"`
+
+	// RCONPort is the Minecraft server's RCON port.
+	// +kubebuilder:default=25575
+	RCONPort int32 `json:"rconPort,omitempty"`
 }
 
 type FleetPhase string

@@ -37,6 +37,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	gamesv1alpha1 "github.com/gobehost/operator/api/v1alpha1"
+	"github.com/gobehost/operator/internal/rcon"
 	"github.com/gobehost/operator/internal/reconciler"
 )
 
@@ -121,6 +122,8 @@ func (r *GameServerFleetReconciler) startSpecUpdate(ctx context.Context, fleet *
 	log := logf.FromContext(ctx)
 	log.Info("Template hash differs, updating GameServer spec in-place", "current", currentGS.Annotations[gamesv1alpha1.TemplateHashAnnotation], "desired", templateHash)
 
+	r.sendGracefulShutdown(ctx, fleet, currentGS)
+
 	patchedGS := currentGS.DeepCopy()
 	patchedGS.Spec = fleet.Spec.Template.Spec
 	if patchedGS.Annotations == nil {
@@ -202,6 +205,60 @@ func (r *GameServerFleetReconciler) handleFailedGS(ctx context.Context, fleet *g
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: fleetRequeueInterval}, nil
+}
+
+func (r *GameServerFleetReconciler) sendGracefulShutdown(ctx context.Context, fleet *gamesv1alpha1.GameServerFleet, gs *gamesv1alpha1.GameServer) {
+	gsConfig := fleet.Spec.GracefulShutdown
+	if gsConfig == nil || !gsConfig.Enabled {
+		return
+	}
+
+	rconPassword := getRCONPassword(gs)
+	if rconPassword == "" {
+		logf.FromContext(ctx).Info("Graceful shutdown enabled but no RCON_PASSWORD env var found on GameServer, skipping countdown")
+		return
+	}
+
+	countdown := gsConfig.CountdownSeconds
+	if countdown < 1 {
+		countdown = 5
+	}
+	port := gsConfig.RCONPort
+	if port == 0 {
+		port = 25575
+	}
+
+	host := fmt.Sprintf("%s-headless.%s.svc.cluster.local", gs.Name, gs.Namespace)
+	rconTimeout := time.Duration(countdown+5) * time.Second
+
+	logf.FromContext(ctx).Info("Sending graceful shutdown countdown via RCON",
+		"host", host, "port", port, "countdown", countdown)
+
+	command := fmt.Sprintf("say Server restarting for update in %d seconds", countdown)
+	if _, err := rcon.SendCommand(host, int(port), rconPassword, command, rconTimeout); err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to send RCON countdown message")
+		return
+	}
+
+	for i := countdown - 1; i > 0; i-- {
+		time.Sleep(1 * time.Second)
+		command := fmt.Sprintf("say Server restarting in %d...", i)
+		if _, err := rcon.SendCommand(host, int(port), rconPassword, command, rconTimeout); err != nil {
+			logf.FromContext(ctx).Error(err, "Failed to send RCON countdown message", "remaining", i)
+			break
+		}
+	}
+
+	logf.FromContext(ctx).Info("Graceful shutdown countdown complete")
+}
+
+func getRCONPassword(gs *gamesv1alpha1.GameServer) string {
+	for _, env := range gs.Spec.Runtime.Env {
+		if env.Name == "RCON_PASSWORD" {
+			return env.Value
+		}
+	}
+	return ""
 }
 
 func (r *GameServerFleetReconciler) patchTemplateHash(ctx context.Context, gs *gamesv1alpha1.GameServer, templateHash string) error {
