@@ -2,6 +2,19 @@
 
 All notable changes to the GobeHost Operator are documented here.
 
+## v0.3.1 - 2026-06-03
+
+### Added
+
+- **RCON graceful shutdown countdown**: Fleet can warn players before an update by sending RCON commands to the Minecraft server. Configured via `spec.gracefulShutdown` with `enabled`, `countdownSeconds`, and `rconPort`. Password read from `RCON_PASSWORD` env var.
+- **RCON client** (`internal/rcon/rcon.go`): Lightweight Minecraft RCON protocol implementation for sending console commands.
+- **GracefulShutdownSpec**: New field on GameServerFleet spec.
+- **CI path filters**: Lint, test, and e2e workflows skip on docs-only changes.
+
+### Documentation
+
+- Minecraft guide updated: in-place update flow, RCON graceful shutdown setup, link to [itzg container docs](https://docker-minecraft-server.readthedocs.io/).
+
 ## v0.3.0 - 2026-06-03
 
 ### Fixed
