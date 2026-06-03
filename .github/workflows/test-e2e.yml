@@ -2,7 +2,9 @@ name: E2E Tests
 
 on:
   push:
+    paths-ignore: [docs/**, mkdocs.yml]
   pull_request:
+    paths-ignore: [docs/**, mkdocs.yml]
 
 jobs:
   test-e2e:
