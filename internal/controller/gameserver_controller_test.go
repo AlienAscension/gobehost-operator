@@ -112,8 +112,8 @@ var _ = Describe("GameServer Controller", func() {
 			Expect(gs.Finalizers).To(ContainElement(gamesv1alpha1.GameServerFinalizer))
 		})
 
-		It("should create PVC, Services, and StatefulSet", func() {
-			const name = "test-create-resources"
+		It("should create Services and StatefulSet", func() {
+			const name = "test-child-resources"
 			defer cleanupGameServer(ctx, name)
 
 			gs := makeGameServerForTest(name)
@@ -125,11 +125,6 @@ var _ = Describe("GameServer Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-
-			pvc := &corev1.PersistentVolumeClaim{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name + "-data", Namespace: "default"}, pvc)).To(Succeed())
-			Expect(pvc.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("10Gi")))
-			Expect(pvc.Spec.AccessModes).To(ContainElement(corev1.ReadWriteOnce))
 
 			headlessSvc := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name + "-headless", Namespace: "default"}, headlessSvc)).To(Succeed())
@@ -199,12 +194,6 @@ var _ = Describe("GameServer Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(k8sClient.Get(ctx, nn, gs)).To(Succeed())
-
-			pvc := &corev1.PersistentVolumeClaim{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name + "-data", Namespace: "default"}, pvc)).To(Succeed())
-			Expect(pvc.OwnerReferences).To(HaveLen(1))
-			Expect(pvc.OwnerReferences[0].Name).To(Equal(name))
-			Expect(*pvc.OwnerReferences[0].Controller).To(BeTrue())
 
 			sts := &appsv1.StatefulSet{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: "default"}, sts)).To(Succeed())

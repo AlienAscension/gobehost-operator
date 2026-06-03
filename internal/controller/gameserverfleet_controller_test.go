@@ -250,7 +250,7 @@ var _ = Describe("GameServerFleet Controller", func() {
 	})
 
 	Context("Rolling updates", func() {
-		It("should detect template hash change and start rolling update", func() {
+		It("should detect template hash change and update GameServer in-place", func() {
 			const name = "test-fleet-rolling"
 			defer cleanupFleet(ctx, name)
 
@@ -276,6 +276,8 @@ var _ = Describe("GameServerFleet Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(k8sClient.Get(ctx, nn, fleet)).To(Succeed())
+			Expect(fleet.Status.Phase).To(Equal(gamesv1alpha1.FleetAvailable))
+
 			fleet.Spec.Template.Spec.Game.Version = "1.22"
 			Expect(k8sClient.Update(ctx, fleet)).To(Succeed())
 
@@ -283,8 +285,11 @@ var _ = Describe("GameServerFleet Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(k8sClient.Get(ctx, nn, fleet)).To(Succeed())
-			Expect(fleet.Status.UpdatedGameServer).NotTo(BeEmpty())
-			Expect(fleet.Annotations).To(HaveKeyWithValue(gamesv1alpha1.UpdatePhaseAnnotation, gamesv1alpha1.UpdatePhaseWaitingForReady))
+			Expect(fleet.Status.Phase).To(Equal(gamesv1alpha1.FleetProgressing))
+			Expect(fleet.Status.History).To(HaveLen(1))
+
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: gsName, Namespace: "default"}, gs)).To(Succeed())
+			Expect(gs.Spec.Game.Version).To(Equal("1.22"))
 		})
 
 		It("should compute template hash correctly", func() {

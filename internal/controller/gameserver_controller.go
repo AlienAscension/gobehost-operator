@@ -90,26 +90,15 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		reconciler.SetPhase(gs, gamesv1alpha1.GameServerPhaseProvisioning)
 	}
 
-	pvc := reconciler.BuildPVC(gs)
-	if err := ctrl.SetControllerReference(gs, pvc, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
-		return nil
-	})
-	if err != nil {
-		log.Error(err, "Failed to reconcile PVC")
-		reconciler.SetReady(gs, false, "PVCReconcileFailed", "Could not reconcile PVC")
-		_ = r.Status().Update(ctx, gs)
-		return ctrl.Result{}, err
-	}
-	log.V(1).Info("Reconciled PVC", "operation", op)
-
 	headlessSvc := reconciler.BuildHeadlessService(gs)
 	if err := ctrl.SetControllerReference(gs, headlessSvc, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
-	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, headlessSvc, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, headlessSvc, func() error {
+		desired := reconciler.BuildHeadlessService(gs)
+		headlessSvc.Labels = desired.Labels
+		headlessSvc.Spec.Selector = desired.Spec.Selector
+		headlessSvc.Spec.Ports = desired.Spec.Ports
 		return nil
 	})
 	if err != nil {
@@ -129,6 +118,16 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, sts, func() error {
+		desired, buildErr := reconciler.BuildStatefulSet(gs)
+		if buildErr != nil {
+			return buildErr
+		}
+		sts.Labels = desired.Labels
+		sts.Spec.Replicas = desired.Spec.Replicas
+		sts.Spec.Selector = desired.Spec.Selector
+		sts.Spec.ServiceName = desired.Spec.ServiceName
+		sts.Spec.Template = desired.Spec.Template
+		sts.Spec.UpdateStrategy = desired.Spec.UpdateStrategy
 		return nil
 	})
 	if err != nil {
@@ -144,6 +143,12 @@ func (r *GameServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, extSvc, func() error {
+		desired := reconciler.BuildService(gs)
+		extSvc.Labels = desired.Labels
+		extSvc.Annotations = desired.Annotations
+		extSvc.Spec.Type = desired.Spec.Type
+		extSvc.Spec.Selector = desired.Spec.Selector
+		extSvc.Spec.Ports = desired.Spec.Ports
 		return nil
 	})
 	if err != nil {
