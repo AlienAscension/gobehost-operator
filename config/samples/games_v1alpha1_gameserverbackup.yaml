@@ -1,9 +1,14 @@
 apiVersion: games.gobehost.com/v1alpha1
 kind: GameServerBackup
 metadata:
-  labels:
-    app.kubernetes.io/name: gobehost-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: gameserverbackup-sample
+  name: minecraft-survival-backup
+  namespace: default
 spec:
-  # TODO(user): Add fields here
+  targetRef:
+    kind: GameServer
+    name: minecraft-survival
+  schedule: "0 */6 * * *"
+  retention: 5
+  includeMetadata: true
+  backupOnDelete: true
+  # storage omitted — uses platform defaults from gobehost-backup-config ConfigMap
