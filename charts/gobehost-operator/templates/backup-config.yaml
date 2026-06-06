@@ -1,0 +1,22 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gobehost-backup-config
+  namespace: {{ .Release.Namespace }}
+data:
+  DEFAULT_S3_ENDPOINT: {{ .Values.backup.s3.endpoint | quote }}
+  DEFAULT_S3_BUCKET: {{ .Values.backup.s3.bucket | quote }}
+  DEFAULT_S3_PATH_PREFIX: {{ .Values.backup.s3.pathPrefix | quote }}
+  DEFAULT_S3_SECRET_NAME: {{ .Values.backup.s3.secretName | default "gobehost-backup-s3-creds" | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.backup.s3.secretName | default "gobehost-backup-s3-creds" }}
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  S3_ACCESS_KEY: {{ .Values.backup.s3.accessKey | b64enc | quote }}
+  S3_SECRET_KEY: {{ .Values.backup.s3.secretKey | b64enc | quote }}
+{{- end }}

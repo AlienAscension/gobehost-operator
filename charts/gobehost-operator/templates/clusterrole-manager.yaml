@@ -8,6 +8,22 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   - services
   verbs:
@@ -31,16 +47,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
+  - batch
   resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - games.gobehost.com
-  resources:
-  - gameservers
+  - cronjobs
   verbs:
   - create
   - delete
@@ -50,11 +59,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - games.gobehost.com
+  - batch
   resources:
-  - gameservers/finalizers
+  - jobs
   verbs:
-  - update
+  - get
+  - list
+  - watch
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -69,15 +80,9 @@ rules:
 - apiGroups:
   - games.gobehost.com
   resources:
-  - gameservers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - games.gobehost.com
-  resources:
+  - gameserverbackups
   - gameserverfleets
+  - gameservers
   verbs:
   - create
   - delete
@@ -89,13 +94,17 @@ rules:
 - apiGroups:
   - games.gobehost.com
   resources:
+  - gameserverbackups/finalizers
   - gameserverfleets/finalizers
+  - gameservers/finalizers
   verbs:
   - update
 - apiGroups:
   - games.gobehost.com
   resources:
+  - gameserverbackups/status
   - gameserverfleets/status
+  - gameservers/status
   verbs:
   - get
   - patch

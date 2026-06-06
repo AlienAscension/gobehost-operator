@@ -37,3 +37,13 @@ manager:
 
 certmanager:
   enabled: true
+
+backup:
+  enabled: false
+  s3:
+    endpoint: ""
+    bucket: ""
+    pathPrefix: "backups"
+    secretName: "gobehost-backup-s3-creds"
+    accessKey: ""
+    secretKey: ""
