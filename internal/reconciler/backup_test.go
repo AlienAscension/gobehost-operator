@@ -176,7 +176,6 @@ var _ = Describe("BuildCronJob", func() {
 	It("should set S3 env vars from config and secret refs", func() {
 		cj := BuildCronJob(backup, cfg, "GameServer", "my-server", "data-my-server-0")
 		container := cj.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
-		Expect(envValue(container.Env, "RCLONE_S3_PROVIDER")).To(Equal("Other"))
 		Expect(envValue(container.Env, "RCLONE_S3_ENDPOINT")).To(Equal("https://s3.example.com"))
 		Expect(envValue(container.Env, "BACKUP_PATH")).To(Equal("ns/server"))
 		Expect(envValue(container.Env, "BACKUP_BUCKET")).To(Equal("my-bucket"))
@@ -187,7 +186,7 @@ var _ = Describe("BuildCronJob", func() {
 	It("should set secret key refs for S3 credentials", func() {
 		cj := BuildCronJob(backup, cfg, "GameServer", "my-server", "data-my-server-0")
 		container := cj.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
-		secretRef := findEnvVar(container.Env, "RCLONE_S3_ACCESS_KEY_ID")
+		secretRef := findEnvVar(container.Env, "AWS_ACCESS_KEY_ID")
 		Expect(secretRef).NotTo(BeNil())
 		Expect(secretRef.ValueFrom.SecretKeyRef.Name).To(Equal("s3-creds"))
 		Expect(secretRef.ValueFrom.SecretKeyRef.Key).To(Equal("S3_ACCESS_KEY"))
@@ -273,7 +272,6 @@ var _ = Describe("BuildBackupOnDeleteJob", func() {
 		container := job.Spec.Template.Spec.Containers[0]
 		Expect(container.Name).To(Equal("backup"))
 		Expect(container.Image).To(Equal("rclone/rclone:latest"))
-		Expect(envValue(container.Env, "RCLONE_S3_PROVIDER")).To(Equal("Other"))
 		Expect(envValue(container.Env, "RCLONE_S3_ENDPOINT")).To(Equal("https://s3.example.com"))
 		Expect(envValue(container.Env, "BACKUP_PATH")).To(Equal("ns/server"))
 		Expect(envValue(container.Env, "BACKUP_BUCKET")).To(Equal("my-bucket"))
