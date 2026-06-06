@@ -2,7 +2,7 @@
 
 ## Overview
 
-`GameServerBackup` manages scheduled and on-demand backups of `GameServer` and `GameServerFleet` data to S3-compatible storage. It creates and manages a `CronJob` that periodically copies PVC data and (optionally) CRD metadata to an S3 bucket using rclone.
+`GameServerBackup` manages scheduled and on-demand backups of `GameServer` and `GameServerFleet` data to S3-compatible storage. It creates and manages a `CronJob` that periodically copies PVC data and (optionally) CRD metadata to an S3 bucket using [rclone](https://rclone.org/).
 
 Backups are decoupled from the `GameServer` lifecycle: you create a `GameServerBackup` resource that references a GameServer or GameServerFleet, and the operator handles the rest. Platform operators configure default S3 credentials; end users simply enable backups.
 
@@ -129,8 +129,8 @@ stringData:
 
 For each `GameServerBackup`:
 
-1. `spec.storage.secretRef.name` → if set, use that Secret (same namespace)
-2. Otherwise → read ConfigMap for `DEFAULT_S3_SECRET_NAME`, use that Secret from operator namespace
+1. `spec.storage.secretRef.name` → if set, use that Secret (in the GameServerBackup's **namespace**, not the operator namespace)
+2. Otherwise → read ConfigMap for `DEFAULT_S3_SECRET_NAME`, use that Secret from the operator namespace
 
 Same for `endpoint`, `bucket`, `path`: spec override wins, else platform default.
 
@@ -223,6 +223,31 @@ When `includeMetadata` is `true`, the backup job exports the target CR's YAML an
 3. Controller reads platform S3 config (ConfigMap + Secret)
 4. Controller creates a CronJob that runs rclone on the schedule
 5. CronJob jobs mount the target PVC read-only and copy data to S3
+
+### How rclone is configured
+
+The controller configures rclone entirely through environment variables — no rclone config file or CLI flags are needed. The remote name is `s3_backup` (underscores, not hyphens — rclone env var convention).
+
+| Env Var | Purpose |
+|---|---|
+| `RCLONE_CONFIG_S3_BACKUP_TYPE` | Always `s3` |
+| `RCLONE_CONFIG_S3_BACKUP_PROVIDER` | Always `Other` (for MinIO and non-AWS S3) |
+| `RCLONE_CONFIG_S3_BACKUP_ENDPOINT` | S3 endpoint URL (e.g. `http://192.168.0.34:9000`) |
+| `RCLONE_CONFIG_S3_BACKUP_ACCESS_KEY_ID` | S3 access key (from Secret) |
+| `RCLONE_CONFIG_S3_BACKUP_SECRET_ACCESS_KEY` | S3 secret key (from Secret) |
+| `BACKUP_BUCKET` | S3 bucket name |
+| `BACKUP_PATH` | Path prefix within the bucket |
+| `BACKUP_RETENTION` | Number of backups to keep |
+| `INCLUDE_METADATA` | Whether to include CRD YAML and Secrets |
+
+The rclone command is static:
+
+```
+/usr/local/bin/rclone copy /data "s3_backup:$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/"
+```
+
+??? tip "Why env vars instead of CLI flags?"
+    CLI flags like `--s3-endpoint=http://host:9000` break when URLs contain colons (rclone parses them as remote delimiters). Environment variables avoid this entirely and follow the Kubernetes pattern of keeping the container command static while driving all configuration through env.
 
 ### Deletion (backupOnDelete)
 

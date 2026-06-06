@@ -12,3 +12,10 @@ spec:
   includeMetadata: true
   backupOnDelete: true
   # storage omitted — uses platform defaults from gobehost-backup-config ConfigMap
+  # To override S3 config per-backup, uncomment:
+  # storage:
+  #   endpoint: "https://s3.us-east-1.amazonaws.com"
+  #   bucket: "my-game-backups"
+  #   path: "minecraft/survival"
+  #   secretRef:
+  #     name: my-s3-creds

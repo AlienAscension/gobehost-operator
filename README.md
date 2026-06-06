@@ -7,6 +7,8 @@ Currently supports **Minecraft** (vanilla, Paper, Forge, Fabric, Spigot, Bukkit)
 ## Features
 
 - **GameServer CRD** — declare a game server instance with game type, version, resources, storage, networking, and server config
+- **GameServerFleet CRD** — manage GameServer lifecycles with rolling updates, 1 replica per customer (SaaS model)
+- **GameServerBackup CRD** — schedule and manage backups of game data to S3-compatible storage with retention, metadata inclusion, and backup-on-delete
 - **Automatic provisioning** — StatefulSet, PVC, headless Service, and external Service created and managed by the controller
 - **Game adapter pattern** — each game plugs in via a simple interface; add new games without touching the controller
 - **Graceful shutdown** — finalizers ensure StatefulSets scale down cleanly before deletion
@@ -42,6 +44,19 @@ Check status:
 ```bash
 kubectl get gameserver
 kubectl describe gameserver minecraft-survival
+```
+
+### Create a backup
+
+```bash
+kubectl apply -f config/samples/games_v1alpha1_gameserverbackup.yaml
+kubectl apply -f config/samples/backup-platform-config.yaml
+```
+
+Check backup status:
+
+```bash
+kubectl get gameserverbackup
 ```
 
 ### Clean up
@@ -164,16 +179,16 @@ Outputs `dist/gobehost-operator-0.1.0.tgz`.
 ## Architecture
 
 ```
-GameServer CR
-      │
-      ▼
-GameServerReconciler
-      │
-      ├─► GameAdapter (minecraft, valheim, ...)
-      │       └─► Env vars, probes, data path, security context
-      │
-      ├─► BuildPVC ──► PersistentVolumeClaim
-      ├─► BuildService ──► Service (LoadBalancer/NodePort)
-      ├─► BuildHeadlessService ──► Service (ClusterIP: None)
-      └─► BuildStatefulSet ──► StatefulSet (1 replica)
+GameServer CR                          GameServerBackup CR
+       │                                       │
+       ▼                                       ▼
+ GameServerReconciler              GameServerBackupReconciler
+       │                                       │
+       ├─► GameAdapter (minecraft, ...)         ├─► ResolveStorageConfig
+       │       └─► Env, probes, data path       │      (platform defaults + overrides)
+       │                                       ├─► BuildCronJob ──► CronJob (rclone)
+       ├─► BuildPVC ──► PVC                    └─► BuildBackupOnDeleteJob ──► Job (on delete)
+       ├─► BuildService ──► Service
+       ├─► BuildHeadlessService ──► Service
+       └─► BuildStatefulSet ──► StatefulSet
 ```

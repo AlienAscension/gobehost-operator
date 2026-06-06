@@ -47,6 +47,7 @@ nav:
   - Guides:
     - Deploying Minecraft: guides/minecraft.md
     - Rolling Updates: guides/rolling-updates.md
+    - Backups: guides/backups.md
     - Adding Game Adapters: guides/custom-game.md
   - Architecture:
     - Overview: architecture/overview.md

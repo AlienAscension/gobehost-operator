@@ -8,17 +8,19 @@ A Kubernetes operator for declaratively managing game servers. Define your game 
 
 ## What it does
 
-GobeHost Operator provides two custom resources for managing game server lifecycles on Kubernetes:
+GobeHost Operator provides three custom resources for managing game server lifecycles on Kubernetes:
 
 | CRD | Purpose |
 |---|---|
 | **GameServer** | Manages an individual game server instance (Minecraft, Valheim, Terraria, etc.) |
 | **GameServerFleet** | Manages the lifecycle of GameServers with rolling updates, 1 replica per customer (SaaS model) |
+| **GameServerBackup** | Schedules and manages backups of game data to S3-compatible storage |
 
 ## Key features
 
 - **Declarative management** -- Define game servers as Kubernetes resources; the controller handles StatefulSets, Services, PVCs, and IngressRoutes
 - **StatefulSet-backed persistence** -- World data survives pod restarts and node failures
+- **Scheduled backups** -- `GameServerBackup` backs up PVC data to S3-compatible storage with CronJob-based scheduling, retention, and backup-on-delete
 - **Adapter pattern** -- Pluggable game adapters translate a unified `GameServerSpec` into game-specific container configuration
 - **Rolling updates with zero-downtime cutover** -- `GameServerFleet` spins up a new server, waits for readiness, then cuts traffic over before tearing down the old one
 - **Traefik IngressRouteTCP integration** -- Native TCP routing for game traffic through Traefik
@@ -129,5 +131,6 @@ kubectl get gameserverfleet minecraft-survival
 - [:material-rocket-launch: Installation guide](getting-started/installation.md) -- detailed install options
 - [:material-game-pad: Deploying Minecraft](guides/minecraft.md) -- full Minecraft server walkthrough
 - [:material-swap-vertical: Rolling updates](guides/rolling-updates.md) -- zero-downtime update strategy
+- [:material-backup: Backups](guides/backups.md) -- scheduled backups to S3-compatible storage
 - [:material-puzzle: CRD reference](crd/gameserver.md) -- full API documentation
 - [:material-architecture: Architecture](architecture/overview.md) -- how the controller works

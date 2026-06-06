@@ -2,6 +2,43 @@
 
 All notable changes to the GobeHost Operator are documented here.
 
+## v0.4.6 - 2026-06-06
+
+### Fixed
+
+- **rclone remote name**: Changed from `s3-backup` to `s3_backup` to match rclone's env var convention (`RCLONE_CONFIG_S3_BACKUP_*` creates remote `s3_backup`).
+
+## v0.4.5 - 2026-06-06
+
+### Changed
+
+- **rclone configuration**: Replaced CLI flags (`--s3-provider`, `--s3-endpoint`, `--s3-env-auth`) with `RCLONE_CONFIG_S3_BACKUP_*` environment variables. The command is now a simple `rclone copy /data s3_backup:$BUCKET/$PATH/` — all config driven through env vars, no CLI flags. This is the Kubernetes-native pattern: static container command, all configuration via environment.
+
+## v0.4.4 - 2026-06-06
+
+### Fixed
+
+- **S3 endpoint URL parsing**: Replaced rclone's on-the-fly remote syntax (`:s3,provider=Other,endpoint=$RCLONE_S3_ENDPOINT:`) with CLI flags (`--s3-provider=Other --s3-endpoint=$RCLONE_S3_ENDPOINT --s3-env-auth`). The on-the-fly syntax parsed colons in URLs like `http://192.168.0.34:9000` as remote delimiters, causing `endpoint 'http' was not a valid URI` errors.
+
+## v0.4.3 - 2026-06-06
+
+### Fixed
+
+- **rclone binary path**: Changed from `/usr/bin/rclone` to `/usr/local/bin/rclone` to match the actual path in the `rclone/rclone:latest` image.
+
+## v0.4.2 - 2026-06-06
+
+### Fixed
+
+- **Lint fixes**: Resolved `prealloc` and `unparam` issues flagged by golangci-lint in backup builder code.
+
+## v0.4.1 - 2026-06-06
+
+### Fixed
+
+- **Secret key names**: Changed from `accessKeyId`/`secretAccessKey` to `S3_ACCESS_KEY`/`S3_SECRET_KEY` to match the keys the controller actually reads from Secrets.
+- **rclone remote path**: Fixed undefined `$RCLONE_REMOTE` variable to use the correct `:s3,provider=Other,endpoint=` on-the-fly remote syntax.
+
 ## v0.4.0 - 2026-06-06
 
 ### Added
