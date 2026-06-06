@@ -69,7 +69,9 @@ func ResolveStorageConfig(backup *gamesv1alpha1.GameServerBackup, platformConfig
 	return cfg
 }
 
-func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, targetKind, targetName, pvcName string) *batchv1.CronJob {
+const rcloneCommand = `/usr/bin/rclone copy /data ":s3,provider=Other,endpoint=$RCLONE_S3_ENDPOINT":$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`
+
+func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{Name: "RCLONE_S3_PROVIDER", Value: "Other"},
 		{Name: "RCLONE_S3_ENDPOINT", Value: cfg.Endpoint},
@@ -78,7 +80,7 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
 				},
-				Key: "accessKeyId",
+				Key: "S3_ACCESS_KEY",
 			},
 		}},
 		{Name: "RCLONE_S3_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
@@ -86,7 +88,7 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
 				},
-				Key: "secretAccessKey",
+				Key: "S3_SECRET_KEY",
 			},
 		}},
 		{Name: "BACKUP_PATH", Value: cfg.Path},
@@ -102,27 +104,26 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 		Value: fmtInt32(retention),
 	})
 
+	includeMetadata := true
 	if backup.Spec.IncludeMetadata != nil {
-		env = append(env, corev1.EnvVar{
-			Name:  "INCLUDE_METADATA",
-			Value: fmtBool(*backup.Spec.IncludeMetadata),
-		})
-	} else {
-		env = append(env, corev1.EnvVar{
-			Name:  "INCLUDE_METADATA",
-			Value: "true",
-		})
+		includeMetadata = *backup.Spec.IncludeMetadata
 	}
+	env = append(env, corev1.EnvVar{
+		Name:  "INCLUDE_METADATA",
+		Value: fmtBool(includeMetadata),
+	})
 
-	volumeName := "data"
+	return env
+}
+
+func buildBackupPod(backup *gamesv1alpha1.GameServerBackup, env []corev1.EnvVar, pvcName string) corev1.PodSpec {
+	const volumeName = "data"
 	container := corev1.Container{
 		Name:    "backup",
 		Image:   "rclone/rclone:latest",
 		Command: []string{"/bin/sh", "-c"},
-		Args: []string{
-			"/usr/bin/rclone copy /data $RCLONE_REMOTE/$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/",
-		},
-		Env: env,
+		Args:    []string{rcloneCommand},
+		Env:     env,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      volumeName,
@@ -132,7 +133,7 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 		},
 	}
 
-	podSpec := corev1.PodSpec{
+	return corev1.PodSpec{
 		Containers:    []corev1.Container{container},
 		RestartPolicy: corev1.RestartPolicyOnFailure,
 		Volumes: []corev1.Volume{
@@ -147,7 +148,11 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 			},
 		},
 	}
+}
 
+func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, targetKind, targetName, pvcName string) *batchv1.CronJob {
+	env := buildBackupEnv(backup, cfg)
+	podSpec := buildBackupPod(backup, env, pvcName)
 	labels := GameServerBackupLabels(backup)
 
 	return &batchv1.CronJob{
@@ -178,84 +183,8 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 }
 
 func BuildBackupOnDeleteJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, targetKind, targetName, pvcName string) *batchv1.Job {
-	env := []corev1.EnvVar{
-		{Name: "RCLONE_S3_PROVIDER", Value: "Other"},
-		{Name: "RCLONE_S3_ENDPOINT", Value: cfg.Endpoint},
-		{Name: "RCLONE_S3_ACCESS_KEY_ID", ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cfg.SecretName,
-				},
-				Key: "accessKeyId",
-			},
-		}},
-		{Name: "RCLONE_S3_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cfg.SecretName,
-				},
-				Key: "secretAccessKey",
-			},
-		}},
-		{Name: "BACKUP_PATH", Value: cfg.Path},
-		{Name: "BACKUP_BUCKET", Value: cfg.Bucket},
-	}
-
-	retention := int32(5)
-	if backup.Spec.Retention != nil {
-		retention = *backup.Spec.Retention
-	}
-	env = append(env, corev1.EnvVar{
-		Name:  "BACKUP_RETENTION",
-		Value: fmtInt32(retention),
-	})
-
-	if backup.Spec.IncludeMetadata != nil {
-		env = append(env, corev1.EnvVar{
-			Name:  "INCLUDE_METADATA",
-			Value: fmtBool(*backup.Spec.IncludeMetadata),
-		})
-	} else {
-		env = append(env, corev1.EnvVar{
-			Name:  "INCLUDE_METADATA",
-			Value: "true",
-		})
-	}
-
-	volumeName := "data"
-	container := corev1.Container{
-		Name:    "backup",
-		Image:   "rclone/rclone:latest",
-		Command: []string{"/bin/sh", "-c"},
-		Args: []string{
-			"/usr/bin/rclone copy /data $RCLONE_REMOTE/$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/",
-		},
-		Env: env,
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      volumeName,
-				MountPath: "/data",
-				ReadOnly:  true,
-			},
-		},
-	}
-
-	podSpec := corev1.PodSpec{
-		Containers:    []corev1.Container{container},
-		RestartPolicy: corev1.RestartPolicyOnFailure,
-		Volumes: []corev1.Volume{
-			{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: pvcName,
-						ReadOnly:  true,
-					},
-				},
-			},
-		},
-	}
-
+	env := buildBackupEnv(backup, cfg)
+	podSpec := buildBackupPod(backup, env, pvcName)
 	labels := GameServerBackupLabels(backup)
 
 	return &batchv1.Job{

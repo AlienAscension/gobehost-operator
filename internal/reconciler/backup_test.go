@@ -190,7 +190,7 @@ var _ = Describe("BuildCronJob", func() {
 		secretRef := findEnvVar(container.Env, "RCLONE_S3_ACCESS_KEY_ID")
 		Expect(secretRef).NotTo(BeNil())
 		Expect(secretRef.ValueFrom.SecretKeyRef.Name).To(Equal("s3-creds"))
-		Expect(secretRef.ValueFrom.SecretKeyRef.Key).To(Equal("accessKeyId"))
+		Expect(secretRef.ValueFrom.SecretKeyRef.Key).To(Equal("S3_ACCESS_KEY"))
 	})
 
 	It("should mount PVC read-only at /data", func() {

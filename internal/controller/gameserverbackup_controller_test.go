@@ -94,8 +94,8 @@ func makeBackupSecret(name string) *corev1.Secret {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			"accessKeyId":     []byte("test-access-key"),
-			"secretAccessKey": []byte("test-secret-key"),
+			"S3_ACCESS_KEY": []byte("test-access-key"),
+			"S3_SECRET_KEY": []byte("test-secret-key"),
 		},
 	}
 }
@@ -352,7 +352,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 
 			Expect(getEnvValue("RCLONE_S3_ENDPOINT")).To(Equal("https://s3.example.com"))
 			Expect(getEnvValue("BACKUP_BUCKET")).To(Equal("backups"))
-			Expect(getEnvValue("RCLONE_S3_ACCESS_KEY_ID")).To(Equal("backup-creds/accessKeyId"))
+			Expect(getEnvValue("RCLONE_S3_ACCESS_KEY_ID")).To(Equal("backup-creds/S3_ACCESS_KEY"))
 			Expect(getEnvValue("BACKUP_RETENTION")).To(Equal("5"))
 			Expect(getEnvValue("INCLUDE_METADATA")).To(Equal("true"))
 		})
@@ -436,7 +436,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(getEnvValue("RCLONE_S3_ENDPOINT")).To(Equal("https://custom-s3.example.com"))
 			Expect(getEnvValue("BACKUP_BUCKET")).To(Equal("custom-backups"))
 			Expect(getEnvValue("BACKUP_PATH")).To(Equal("custom-path"))
-			Expect(getEnvValue("RCLONE_S3_ACCESS_KEY_ID")).To(Equal("custom-s3-creds/accessKeyId"))
+			Expect(getEnvValue("RCLONE_S3_ACCESS_KEY_ID")).To(Equal("custom-s3-creds/S3_ACCESS_KEY"))
 			Expect(getEnvValue("BACKUP_RETENTION")).To(Equal("10"))
 		})
 
