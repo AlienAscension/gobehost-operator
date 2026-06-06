@@ -180,22 +180,6 @@ type ServerSpec struct {
 	OnlineMode *bool `json:"onlineMode,omitempty"`
 }
 
-// BackupSpec defines backup configuration.
-type BackupSpec struct {
-	// schedule is the cron schedule for backups (e.g., "0 */6 * * *").
-	// +kubebuilder:validation:Required
-	Schedule string `json:"schedule"`
-
-	// retention is the number of backups to retain.
-	// +kubebuilder:default=3
-	// +optional
-	Retention *int32 `json:"retention,omitempty"`
-
-	// storageClass is the StorageClass for backup volumes.
-	// +optional
-	StorageClass *string `json:"storageClass,omitempty"`
-}
-
 // SchedulingSpec defines scheduling constraints.
 type SchedulingSpec struct {
 	// nodeSelector for pod placement.
@@ -255,15 +239,15 @@ type PortInfo struct {
 
 // GameServerSpec defines the desired state of GameServer
 type GameServerSpec struct {
-	Game       GameSpec                    `json:"game"`
-	Runtime    RuntimeSpec                 `json:"runtime"`
-	Resources  corev1.ResourceRequirements `json:"resources,omitempty"`
-	Storage    StorageSpec                 `json:"storage"`
-	Network    NetworkSpec                 `json:"network"`
-	Server     *ServerSpec                 `json:"server,omitempty"`
-	Backup     *BackupSpec                 `json:"backup,omitempty"`
-	Scheduling *SchedulingSpec             `json:"scheduling,omitempty"`
-	Security   *SecuritySpec               `json:"security,omitempty"`
+	Game      GameSpec                    `json:"game"`
+	Runtime   RuntimeSpec                 `json:"runtime"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Storage   StorageSpec                 `json:"storage"`
+	Network   NetworkSpec                 `json:"network"`
+	Server    *ServerSpec                 `json:"server,omitempty"`
+
+	Scheduling *SchedulingSpec `json:"scheduling,omitempty"`
+	Security   *SecuritySpec   `json:"security,omitempty"`
 }
 
 // GameServerStatus defines the observed state of GameServer.

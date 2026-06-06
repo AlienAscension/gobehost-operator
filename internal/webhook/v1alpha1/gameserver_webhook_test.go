@@ -118,11 +118,6 @@ var _ = Describe("GameServer Webhook", func() {
 			Expect(*obj.Spec.Security.DropAllCapabilities).To(BeTrue())
 		})
 
-		It("Should default Backup Retention to 3", func() {
-			obj.Spec.Backup = &gamesv1alpha1.BackupSpec{Schedule: "0 */6 * * *"}
-			Expect(defaulter.Default(ctx, obj)).To(Succeed())
-			Expect(*obj.Spec.Backup.Retention).To(Equal(int32(3)))
-		})
 	})
 
 	Context("When creating or updating GameServer under Validating Webhook", func() {

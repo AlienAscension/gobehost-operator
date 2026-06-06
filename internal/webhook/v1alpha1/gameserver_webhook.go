@@ -101,10 +101,6 @@ func (d *GameServerCustomDefaulter) Default(_ context.Context, obj *gamesv1alpha
 		spec.Security.DropAllCapabilities = ptr.To(true)
 	}
 
-	if spec.Backup != nil && spec.Backup.Retention == nil {
-		spec.Backup.Retention = ptr.To(int32(3))
-	}
-
 	return nil
 }
 

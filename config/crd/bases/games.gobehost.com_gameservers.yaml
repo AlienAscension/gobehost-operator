@@ -61,24 +61,6 @@ spec:
           spec:
             description: spec defines the desired state of GameServer
             properties:
-              backup:
-                description: BackupSpec defines backup configuration.
-                properties:
-                  retention:
-                    default: 3
-                    description: retention is the number of backups to retain.
-                    format: int32
-                    type: integer
-                  schedule:
-                    description: schedule is the cron schedule for backups (e.g.,
-                      "0 */6 * * *").
-                    type: string
-                  storageClass:
-                    description: storageClass is the StorageClass for backup volumes.
-                    type: string
-                required:
-                - schedule
-                type: object
               game:
                 description: GameSpec defines the game type and configuration.
                 properties:
