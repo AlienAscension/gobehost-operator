@@ -115,10 +115,7 @@ kubectl logs job/<backup-name>-backup-on-delete
 
 | Error | Cause | Fix |
 |---|---|---|
-| `didn't find section in config file ("s3-backup")` | Old operator version using hyphenated remote name | Upgrade to v0.4.6+ |
-| `endpoint 'http' was not a valid URI` | Old operator version using on-the-fly remote syntax | Upgrade to v0.4.5+ |
 | `SignatureDoesNotMatch` | Wrong S3 credentials | Verify Secret keys are `S3_ACCESS_KEY` and `S3_SECRET_KEY` with correct values |
-| `/usr/bin/rclone: not found` | Old operator version with wrong binary path | Upgrade to v0.4.3+ |
 
 ## Next steps
 
