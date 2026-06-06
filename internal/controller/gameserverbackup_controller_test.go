@@ -350,9 +350,9 @@ var _ = Describe("GameServerBackup Controller", func() {
 				return ""
 			}
 
-			Expect(getEnvValue("RCLONE_S3_ENDPOINT")).To(Equal("https://s3.example.com"))
+			Expect(getEnvValue("RCLONE_CONFIG_S3_BACKUP_ENDPOINT")).To(Equal("https://s3.example.com"))
 			Expect(getEnvValue("BACKUP_BUCKET")).To(Equal("backups"))
-			Expect(getEnvValue("AWS_ACCESS_KEY_ID")).To(Equal("backup-creds/S3_ACCESS_KEY"))
+			Expect(getEnvValue("RCLONE_CONFIG_S3_BACKUP_ACCESS_KEY_ID")).To(Equal("backup-creds/S3_ACCESS_KEY"))
 			Expect(getEnvValue("BACKUP_RETENTION")).To(Equal("5"))
 			Expect(getEnvValue("INCLUDE_METADATA")).To(Equal("true"))
 		})
@@ -433,10 +433,10 @@ var _ = Describe("GameServerBackup Controller", func() {
 				return ""
 			}
 
-			Expect(getEnvValue("RCLONE_S3_ENDPOINT")).To(Equal("https://custom-s3.example.com"))
+			Expect(getEnvValue("RCLONE_CONFIG_S3_BACKUP_ENDPOINT")).To(Equal("https://custom-s3.example.com"))
 			Expect(getEnvValue("BACKUP_BUCKET")).To(Equal("custom-backups"))
 			Expect(getEnvValue("BACKUP_PATH")).To(Equal("custom-path"))
-			Expect(getEnvValue("AWS_ACCESS_KEY_ID")).To(Equal("custom-s3-creds/S3_ACCESS_KEY"))
+			Expect(getEnvValue("RCLONE_CONFIG_S3_BACKUP_ACCESS_KEY_ID")).To(Equal("custom-s3-creds/S3_ACCESS_KEY"))
 			Expect(getEnvValue("BACKUP_RETENTION")).To(Equal("10"))
 		})
 

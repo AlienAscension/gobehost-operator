@@ -69,12 +69,15 @@ func ResolveStorageConfig(backup *gamesv1alpha1.GameServerBackup, platformConfig
 	return cfg
 }
 
-const rcloneCommand = `/usr/local/bin/rclone copy /data "s3:$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/" --s3-provider=Other --s3-endpoint=$RCLONE_S3_ENDPOINT --s3-env-auth`
+const rcloneCommand = `/usr/local/bin/rclone copy /data "s3-backup:$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/"`
 
 func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0, 8)
 	env = append(env,
-		corev1.EnvVar{Name: "AWS_ACCESS_KEY_ID", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: "RCLONE_CONFIG_S3_BACKUP_TYPE", Value: "s3"},
+		corev1.EnvVar{Name: "RCLONE_CONFIG_S3_BACKUP_PROVIDER", Value: "Other"},
+		corev1.EnvVar{Name: "RCLONE_CONFIG_S3_BACKUP_ENDPOINT", Value: cfg.Endpoint},
+		corev1.EnvVar{Name: "RCLONE_CONFIG_S3_BACKUP_ACCESS_KEY_ID", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
@@ -82,7 +85,7 @@ func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) [
 				Key: "S3_ACCESS_KEY",
 			},
 		}},
-		corev1.EnvVar{Name: "AWS_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: "RCLONE_CONFIG_S3_BACKUP_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
@@ -90,7 +93,6 @@ func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) [
 				Key: "S3_SECRET_KEY",
 			},
 		}},
-		corev1.EnvVar{Name: "RCLONE_S3_ENDPOINT", Value: cfg.Endpoint},
 		corev1.EnvVar{Name: "BACKUP_PATH", Value: cfg.Path},
 		corev1.EnvVar{Name: "BACKUP_BUCKET", Value: cfg.Bucket},
 	)
