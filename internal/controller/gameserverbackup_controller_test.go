@@ -87,11 +87,11 @@ func makeBackupConfigConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func makeBackupSecret(name, namespace string) *corev1.Secret {
+func makeBackupSecret(name string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 		},
 		Data: map[string][]byte{
 			"accessKeyId":     []byte("test-access-key"),
@@ -209,7 +209,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, cm) }()
 
-			secret := makeBackupSecret("backup-creds", "default")
+			secret := makeBackupSecret("backup-creds")
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, secret) }()
 
@@ -317,7 +317,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, cm) }()
 
-			secret := makeBackupSecret("backup-creds", "default")
+			secret := makeBackupSecret("backup-creds")
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, secret) }()
 
@@ -386,11 +386,11 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, cm) }()
 
-			secret := makeBackupSecret("backup-creds", "default")
+			secret := makeBackupSecret("backup-creds")
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, secret) }()
 
-			customSecret := makeBackupSecret("custom-s3-creds", "default")
+			customSecret := makeBackupSecret("custom-s3-creds")
 			Expect(k8sClient.Create(ctx, customSecret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, customSecret) }()
 
@@ -500,7 +500,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, cm) }()
 
-			secret := makeBackupSecret("backup-creds", "default")
+			secret := makeBackupSecret("backup-creds")
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, secret) }()
 
@@ -578,7 +578,7 @@ var _ = Describe("GameServerBackup Controller", func() {
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, cm) }()
 
-			secret := makeBackupSecret("backup-creds", "default")
+			secret := makeBackupSecret("backup-creds")
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, secret) }()
 

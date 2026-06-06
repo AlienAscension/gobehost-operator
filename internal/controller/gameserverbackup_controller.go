@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -81,42 +82,12 @@ func (r *GameServerBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	targetKind := backup.Spec.TargetRef.Kind
-	targetName := backup.Spec.TargetRef.Name
-
-	if targetKind == "GameServerFleet" {
-		fleet := &gamesv1alpha1.GameServerFleet{}
-		if err := r.Get(ctx, types.NamespacedName{Name: targetName, Namespace: backup.Namespace}, fleet); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Target GameServerFleet not found", "name", targetName)
-				setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServerFleet not found")
-				backup.Status.ObservedGeneration = backup.Generation
-				_ = r.Status().Update(ctx, backup)
-				return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-			}
-			return ctrl.Result{}, err
-		}
-		if fleet.Status.CurrentGameServer == "" {
-			log.Info("GameServerFleet has no current GameServer", "name", targetName)
-			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServerFleet has no current GameServer")
-			backup.Status.ObservedGeneration = backup.Generation
-			_ = r.Status().Update(ctx, backup)
-			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-		}
-		targetKind = "GameServer"
-		targetName = fleet.Status.CurrentGameServer
-	} else {
-		gs := &gamesv1alpha1.GameServer{}
-		if err := r.Get(ctx, types.NamespacedName{Name: targetName, Namespace: backup.Namespace}, gs); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Target GameServer not found", "name", targetName)
-				setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServer not found")
-				backup.Status.ObservedGeneration = backup.Generation
-				_ = r.Status().Update(ctx, backup)
-				return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-			}
-			return ctrl.Result{}, err
-		}
+	targetKind, targetName, err := r.resolveTarget(ctx, backup)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if targetKind == "" {
+		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
 	cfg, err := r.resolveStorageConfig(ctx, backup)
@@ -135,13 +106,83 @@ func (r *GameServerBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
 	}
 
+	pvcResult, err := r.checkPVC(ctx, backup, targetKind, targetName)
+	if err != nil || pvcResult != "" {
+		if pvcResult != "" {
+			return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
 	pvcName := reconciler.GetPVCName("GameServer", targetName)
+	if err := r.reconcileCronJob(ctx, backup, cfg, targetKind, targetName, pvcName); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.updateBackupJobStatus(ctx, backup)
+
+	setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionTrue, gamesv1alpha1.BackupCronJobCreated, "CronJob created")
+	backup.Status.ObservedGeneration = backup.Generation
+	if err := r.Status().Update(ctx, backup); err != nil {
+		if errors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
+}
+
+func (r *GameServerBackupReconciler) resolveTarget(ctx context.Context, backup *gamesv1alpha1.GameServerBackup) (string, string, error) {
+	log := logf.FromContext(ctx)
+	targetKind := backup.Spec.TargetRef.Kind
+	targetName := backup.Spec.TargetRef.Name
+
+	if targetKind == "GameServerFleet" {
+		fleet := &gamesv1alpha1.GameServerFleet{}
+		if err := r.Get(ctx, types.NamespacedName{Name: targetName, Namespace: backup.Namespace}, fleet); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Target GameServerFleet not found", "name", targetName)
+				setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServerFleet not found")
+				backup.Status.ObservedGeneration = backup.Generation
+				_ = r.Status().Update(ctx, backup)
+				return "", "", nil
+			}
+			return "", "", err
+		}
+		if fleet.Status.CurrentGameServer == "" {
+			log.Info("GameServerFleet has no current GameServer", "name", targetName)
+			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServerFleet has no current GameServer")
+			backup.Status.ObservedGeneration = backup.Generation
+			_ = r.Status().Update(ctx, backup)
+			return "", "", nil
+		}
+		return "GameServer", fleet.Status.CurrentGameServer, nil
+	}
+
+	gs := &gamesv1alpha1.GameServer{}
+	if err := r.Get(ctx, types.NamespacedName{Name: targetName, Namespace: backup.Namespace}, gs); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Target GameServer not found", "name", targetName)
+			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupTargetNotFound, "GameServer not found")
+			backup.Status.ObservedGeneration = backup.Generation
+			_ = r.Status().Update(ctx, backup)
+			return "", "", nil
+		}
+		return "", "", err
+	}
+	return targetKind, targetName, nil
+}
+
+func (r *GameServerBackupReconciler) checkPVC(ctx context.Context, backup *gamesv1alpha1.GameServerBackup, targetKind, targetName string) (string, error) {
+	log := logf.FromContext(ctx)
+	pvcName := reconciler.GetPVCName(targetKind, targetName)
 	if pvcName == "" {
 		log.Info("Cannot determine PVC name for target", "targetKind", targetKind, "targetName", targetName)
 		setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "Cannot determine PVC name for target")
 		backup.Status.ObservedGeneration = backup.Generation
 		_ = r.Status().Update(ctx, backup)
-		return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
+		return "requeue", nil
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -151,27 +192,31 @@ func (r *GameServerBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "PVC not found")
 			backup.Status.ObservedGeneration = backup.Generation
 			_ = r.Status().Update(ctx, backup)
-			return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
+			return "requeue", nil
 		}
-		return ctrl.Result{}, err
+		return "", err
 	}
 	if pvc.Status.Phase != corev1.ClaimBound {
 		log.Info("PVC not bound", "pvcName", pvcName, "phase", pvc.Status.Phase)
 		setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "PVC is not bound")
 		backup.Status.ObservedGeneration = backup.Generation
 		_ = r.Status().Update(ctx, backup)
-		return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
+		return "requeue", nil
 	}
+	return "", nil
+}
 
+func (r *GameServerBackupReconciler) reconcileCronJob(ctx context.Context, backup *gamesv1alpha1.GameServerBackup, cfg *reconciler.BackupConfig, targetKind, targetName, pvcName string) error {
+	log := logf.FromContext(ctx)
 	cj := reconciler.BuildCronJob(backup, cfg, targetKind, targetName, pvcName)
 	if err := ctrl.SetControllerReference(backup, cj, r.Scheme); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	existingCJ := &batchv1.CronJob{}
-	err = r.Get(ctx, types.NamespacedName{Name: cj.Name, Namespace: cj.Namespace}, existingCJ)
+	err := r.Get(ctx, types.NamespacedName{Name: cj.Name, Namespace: cj.Namespace}, existingCJ)
 	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if errors.IsNotFound(err) {
@@ -180,7 +225,7 @@ func (r *GameServerBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupCronJobFailed, "Failed to create CronJob")
 			backup.Status.ObservedGeneration = backup.Generation
 			_ = r.Status().Update(ctx, backup)
-			return ctrl.Result{}, err
+			return err
 		}
 		log.Info("Created CronJob", "name", cj.Name)
 	} else {
@@ -197,53 +242,50 @@ func (r *GameServerBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupCronJobFailed, "Failed to update CronJob")
 			backup.Status.ObservedGeneration = backup.Generation
 			_ = r.Status().Update(ctx, backup)
-			return ctrl.Result{}, err
+			return err
 		}
 		log.V(1).Info("Reconciled CronJob", "operation", op)
 	}
+	return nil
+}
 
+func (r *GameServerBackupReconciler) updateBackupJobStatus(ctx context.Context, backup *gamesv1alpha1.GameServerBackup) {
+	log := logf.FromContext(ctx)
 	jobList := &batchv1.JobList{}
 	if err := r.List(ctx, jobList,
 		client.InNamespace(backup.Namespace),
 		client.MatchingLabels(reconciler.GameServerBackupLabels(backup)),
 	); err != nil {
 		log.Error(err, "Failed to list Jobs for backup")
-	} else if len(jobList.Items) > 0 {
-		latestJob := &jobList.Items[0]
-		for i := range jobList.Items {
-			if jobList.Items[i].CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
-				latestJob = &jobList.Items[i]
-			}
-		}
+		return
+	}
+	if len(jobList.Items) == 0 {
+		return
+	}
 
-		for _, c := range latestJob.Status.Conditions {
-			if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
-				setBackupCondition(backup, gamesv1alpha1.BackupSucceeded, metav1.ConditionTrue, "Succeeded", "Last backup job succeeded")
-				backup.Status.LastBackupStatus = "Success"
-				if latestJob.Status.CompletionTime != nil {
-					backup.Status.LastBackupTime = latestJob.Status.CompletionTime
-				}
-				break
-			}
-			if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
-				setBackupCondition(backup, gamesv1alpha1.BackupSucceeded, metav1.ConditionFalse, gamesv1alpha1.BackupCronJobFailed, c.Message)
-				backup.Status.LastBackupStatus = "Failed"
-				recordEvent(ctx, backup, "Warning", "BackupFailed", c.Message)
-				break
-			}
+	latestJob := &jobList.Items[0]
+	for i := range jobList.Items {
+		if jobList.Items[i].CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
+			latestJob = &jobList.Items[i]
 		}
 	}
 
-	setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionTrue, gamesv1alpha1.BackupCronJobCreated, "CronJob created")
-	backup.Status.ObservedGeneration = backup.Generation
-	if err := r.Status().Update(ctx, backup); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+	for _, c := range latestJob.Status.Conditions {
+		if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+			setBackupCondition(backup, gamesv1alpha1.BackupSucceeded, metav1.ConditionTrue, "Succeeded", "Last backup job succeeded")
+			backup.Status.LastBackupStatus = "Success"
+			if latestJob.Status.CompletionTime != nil {
+				backup.Status.LastBackupTime = latestJob.Status.CompletionTime
+			}
+			break
 		}
-		return ctrl.Result{}, err
+		if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+			setBackupCondition(backup, gamesv1alpha1.BackupSucceeded, metav1.ConditionFalse, gamesv1alpha1.BackupCronJobFailed, c.Message)
+			backup.Status.LastBackupStatus = "Failed"
+			recordEvent(ctx, backup, "Warning", "BackupFailed", c.Message)
+			break
+		}
 	}
-
-	return ctrl.Result{RequeueAfter: backupRequeueInterval}, nil
 }
 
 func (r *GameServerBackupReconciler) finalize(ctx context.Context, backup *gamesv1alpha1.GameServerBackup) (ctrl.Result, error) {
@@ -343,12 +385,7 @@ func (r *GameServerBackupReconciler) addFinalizer(ctx context.Context, backup *g
 }
 
 func hasBackupFinalizer(backup *gamesv1alpha1.GameServerBackup) bool {
-	for _, f := range backup.Finalizers {
-		if f == gamesv1alpha1.GameServerBackupFinalizer {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(backup.Finalizers, gamesv1alpha1.GameServerBackupFinalizer)
 }
 
 func (r *GameServerBackupReconciler) resolveStorageConfig(ctx context.Context, backup *gamesv1alpha1.GameServerBackup) (*reconciler.BackupConfig, error) {

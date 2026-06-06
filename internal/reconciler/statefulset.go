@@ -32,8 +32,10 @@ func BuildStatefulSet(gs *gamesv1alpha1.GameServer) (*appsv1.StatefulSet, error)
 		return nil, err
 	}
 
+	const pvcClaimName = "data"
+
 	pvc := BuildPVC(gs)
-	pvc.Name = "data"
+	pvc.Name = pvcClaimName
 	pvc.Namespace = ""
 
 	env := a.Env(gs)
@@ -70,7 +72,7 @@ func BuildStatefulSet(gs *gamesv1alpha1.GameServer) (*appsv1.StatefulSet, error)
 		Ports:           ports,
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "data",
+				Name:      pvcClaimName,
 				MountPath: a.DataPath(gs),
 			},
 		},

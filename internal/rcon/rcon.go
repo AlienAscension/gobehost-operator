@@ -19,7 +19,7 @@ func SendCommand(host string, port int, password, command string, timeout time.D
 	if err != nil {
 		return "", fmt.Errorf("rcon dial %s: %w", addr, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return "", fmt.Errorf("rcon set deadline: %w", err)

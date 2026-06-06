@@ -82,7 +82,8 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	var backupConfigNamespace string
-	flag.StringVar(&backupConfigNamespace, "backup-config-namespace", "gobehost-system", "Namespace for platform backup configuration")
+	flag.StringVar(&backupConfigNamespace, "backup-config-namespace", "gobehost-system",
+		"Namespace for platform backup configuration")
 	opts := zap.Options{
 		Development: true,
 	}
