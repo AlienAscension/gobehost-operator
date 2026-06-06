@@ -20,38 +20,113 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const GameServerBackupFinalizer = "games.gobehost.com/backup-finalizer"
 
-// GameServerBackupSpec defines the desired state of GameServerBackup
-type GameServerBackupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+// Condition types for GameServerBackup.
+const (
+	BackupReady     = "Ready"
+	BackupSucceeded = "LastBackupSucceeded"
+)
 
-	// foo is an example field of GameServerBackup. Edit gameserverbackup_types.go to remove/update
+// Condition reasons for GameServerBackup.
+const (
+	BackupCronJobCreated = "CronJobCreated"
+	BackupTargetNotFound = "TargetNotFound"
+	BackupStorageMissing = "StorageConfigMissing"
+	BackupCronJobFailed  = "CronJobFailed"
+	BackupPVCNotReady    = "PVCNotReady"
+	BackupInvalidCreds   = "InvalidCredentials"
+	BackupStorageUnavail = "StorageUnavailable"
+)
+
+// BackupStorageSpec defines S3 storage configuration for backups.
+type BackupStorageSpec struct {
+	// endpoint is the S3-compatible endpoint URL. Uses the platform default if empty.
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// bucket is the S3 bucket name. Uses the platform default if empty.
+	// +optional
+	Bucket string `json:"bucket,omitempty"`
+
+	// path is the prefix within the bucket. Defaults to <namespace>/<target-name>.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// secretRef references a Secret with S3 credentials.
+	// +optional
+	SecretRef *BackupSecretRef `json:"secretRef,omitempty"`
+}
+
+// BackupSecretRef references a Secret containing S3 credentials.
+type BackupSecretRef struct {
+	// name is the Secret name in the same namespace.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// TargetReference points to a GameServer or GameServerFleet.
+type TargetReference struct {
+	// kind is the target resource kind.
+	// +kubebuilder:validation:Enum=GameServer;GameServerFleet
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// name is the target resource name.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// GameServerBackupSpec defines the desired state of GameServerBackup.
+type GameServerBackupSpec struct {
+	// targetRef specifies what to back up.
+	// +kubebuilder:validation:Required
+	TargetRef TargetReference `json:"targetRef"`
+
+	// schedule is the cron schedule for backups (e.g., "0 */6 * * *").
+	// +kubebuilder:validation:Required
+	Schedule string `json:"schedule"`
+
+	// retention is the number of backups to keep.
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Retention *int32 `json:"retention,omitempty"`
+
+	// storage configures where backups are stored. Uses platform defaults if empty.
+	// +optional
+	Storage *BackupStorageSpec `json:"storage,omitempty"`
+
+	// includeMetadata controls whether CRD YAML and secrets are included in the backup.
+	// +kubebuilder:default=true
+	// +optional
+	IncludeMetadata *bool `json:"includeMetadata,omitempty"`
+
+	// backupOnDelete triggers a final backup before the target is deleted.
+	// +kubebuilder:default=true
+	// +optional
+	BackupOnDelete *bool `json:"backupOnDelete,omitempty"`
 }
 
 // GameServerBackupStatus defines the observed state of GameServerBackup.
 type GameServerBackupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// lastBackupTime is the timestamp of the most recent completed backup.
+	// +optional
+	LastBackupTime *metav1.Time `json:"lastBackupTime,omitempty"`
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+	// lastBackupStatus is "Success" or "Failed" for the most recent backup.
+	// +optional
+	LastBackupStatus string `json:"lastBackupStatus,omitempty"`
+
+	// nextBackupTime is when the next scheduled backup will run.
+	// +optional
+	NextBackupTime *metav1.Time `json:"nextBackupTime,omitempty"`
+
+	// observedGeneration reflects the metadata.generation last processed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// conditions represent the current state of the GameServerBackup resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -60,6 +135,11 @@ type GameServerBackupStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=Schedule,type=string,JSONPath=`.spec.schedule`
+// +kubebuilder:printcolumn:name=LastBackup,type=date,JSONPath=`.status.lastBackupTime`
+// +kubebuilder:printcolumn:name=Status,type=string,JSONPath=`.status.lastBackupStatus`
+// +kubebuilder:printcolumn:name=Age,type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:resource:scope=Namespaced,shortName=gsb
 
 // GameServerBackup is the Schema for the gameserverbackups API
 type GameServerBackup struct {

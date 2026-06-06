@@ -51,7 +51,13 @@ var _ = Describe("GameServerBackup Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: gamesv1alpha1.GameServerBackupSpec{
+						TargetRef: gamesv1alpha1.TargetReference{
+							Kind: "GameServer",
+							Name: "test-gameserver",
+						},
+						Schedule: "0 */6 * * *",
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

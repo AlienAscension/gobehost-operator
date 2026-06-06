@@ -11,10 +11,25 @@ spec:
     kind: GameServerBackup
     listKind: GameServerBackupList
     plural: gameserverbackups
+    shortNames:
+    - gsb
     singular: gameserverbackup
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.schedule
+      name: Schedule
+      type: string
+    - jsonPath: .status.lastBackupTime
+      name: LastBackup
+      type: date
+    - jsonPath: .status.lastBackupStatus
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: GameServerBackup is the Schema for the gameserverbackups API
@@ -39,25 +54,78 @@ spec:
           spec:
             description: spec defines the desired state of GameServerBackup
             properties:
-              foo:
-                description: foo is an example field of GameServerBackup. Edit gameserverbackup_types.go
-                  to remove/update
+              backupOnDelete:
+                default: true
+                description: backupOnDelete triggers a final backup before the target
+                  is deleted.
+                type: boolean
+              includeMetadata:
+                default: true
+                description: includeMetadata controls whether CRD YAML and secrets
+                  are included in the backup.
+                type: boolean
+              retention:
+                default: 5
+                description: retention is the number of backups to keep.
+                format: int32
+                minimum: 1
+                type: integer
+              schedule:
+                description: schedule is the cron schedule for backups (e.g., "0 */6
+                  * * *").
                 type: string
+              storage:
+                description: storage configures where backups are stored. Uses platform
+                  defaults if empty.
+                properties:
+                  bucket:
+                    description: bucket is the S3 bucket name. Uses the platform default
+                      if empty.
+                    type: string
+                  endpoint:
+                    description: endpoint is the S3-compatible endpoint URL. Uses
+                      the platform default if empty.
+                    type: string
+                  path:
+                    description: path is the prefix within the bucket. Defaults to
+                      <namespace>/<target-name>.
+                    type: string
+                  secretRef:
+                    description: secretRef references a Secret with S3 credentials.
+                    properties:
+                      name:
+                        description: name is the Secret name in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              targetRef:
+                description: targetRef specifies what to back up.
+                properties:
+                  kind:
+                    description: kind is the target resource kind.
+                    enum:
+                    - GameServer
+                    - GameServerFleet
+                    type: string
+                  name:
+                    description: name is the target resource name.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+            required:
+            - schedule
+            - targetRef
             type: object
           status:
             description: status defines the observed state of GameServerBackup
             properties:
               conditions:
-                description: |-
-                  conditions represent the current state of the GameServerBackup resource.
-                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
-
-                  Standard condition types include:
-                  - "Available": the resource is fully functional
-                  - "Progressing": the resource is being created or updated
-                  - "Degraded": the resource failed to reach or maintain its desired state
-
-                  The status of each condition is one of True, False, or Unknown.
+                description: conditions represent the current state of the GameServerBackup
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -116,6 +184,25 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lastBackupStatus:
+                description: lastBackupStatus is "Success" or "Failed" for the most
+                  recent backup.
+                type: string
+              lastBackupTime:
+                description: lastBackupTime is the timestamp of the most recent completed
+                  backup.
+                format: date-time
+                type: string
+              nextBackupTime:
+                description: nextBackupTime is when the next scheduled backup will
+                  run.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: observedGeneration reflects the metadata.generation last
+                  processed.
+                format: int64
+                type: integer
             type: object
         required:
         - spec
