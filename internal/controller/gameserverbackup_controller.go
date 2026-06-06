@@ -37,6 +37,7 @@ import (
 )
 
 const backupRequeueInterval = 30 * time.Second
+const requeueSignal = "requeue"
 
 type GameServerBackupReconciler struct {
 	client.Client
@@ -182,7 +183,7 @@ func (r *GameServerBackupReconciler) checkPVC(ctx context.Context, backup *games
 		setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "Cannot determine PVC name for target")
 		backup.Status.ObservedGeneration = backup.Generation
 		_ = r.Status().Update(ctx, backup)
-		return "requeue", nil
+		return requeueSignal, nil
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -192,7 +193,7 @@ func (r *GameServerBackupReconciler) checkPVC(ctx context.Context, backup *games
 			setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "PVC not found")
 			backup.Status.ObservedGeneration = backup.Generation
 			_ = r.Status().Update(ctx, backup)
-			return "requeue", nil
+			return requeueSignal, nil
 		}
 		return "", err
 	}
@@ -201,7 +202,7 @@ func (r *GameServerBackupReconciler) checkPVC(ctx context.Context, backup *games
 		setBackupCondition(backup, gamesv1alpha1.BackupReady, metav1.ConditionFalse, gamesv1alpha1.BackupPVCNotReady, "PVC is not bound")
 		backup.Status.ObservedGeneration = backup.Generation
 		_ = r.Status().Update(ctx, backup)
-		return "requeue", nil
+		return requeueSignal, nil
 	}
 	return "", nil
 }
