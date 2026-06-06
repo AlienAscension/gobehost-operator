@@ -2,6 +2,24 @@
 
 All notable changes to the GobeHost Operator are documented here.
 
+## v0.4.0 - 2026-06-06
+
+### Added
+
+- **GameServerBackup CRD**: New CRD for scheduling and managing backups of GameServer and GameServerFleet data to S3-compatible storage.
+  - Dedicated CRD decoupled from GameServer lifecycle
+  - CronJob-based scheduled backups using rclone
+  - Platform S3 defaults via ConfigMap/Secret in operator namespace
+  - Per-backup storage overrides (endpoint, bucket, path, credentials)
+  - Metadata inclusion (CRD YAML + referenced Secrets/ConfigMaps)
+  - Backup-on-delete finalizer for pre-deletion backups
+  - Configurable retention (oldest backups pruned first)
+  - Short name: `gsb`
+
+### Removed
+
+- **BackupSpec from GameServer**: The `backup` field and `BackupSpec` struct have been removed from `GameServerSpec`. Backup configuration now uses the dedicated `GameServerBackup` CRD. The `BackupInProgress` phase is retained for coordination during backup-on-delete.
+
 ## v0.3.1 - 2026-06-03
 
 ### Added

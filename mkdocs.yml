@@ -43,6 +43,7 @@ nav:
   - CRD Reference:
     - GameServer: crd/gameserver.md
     - GameServerFleet: crd/gameserverfleet.md
+    - GameServerBackup: crd/gameserverbackup.md
   - Guides:
     - Deploying Minecraft: guides/minecraft.md
     - Rolling Updates: guides/rolling-updates.md

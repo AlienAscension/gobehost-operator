@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `GameServer` custom resource defines a dedicated game server instance managed by the gobehost-operator. It encapsulates the full lifecycle of a game server — from provisioning storage and networking through runtime configuration and backup scheduling — into a single declarative Kubernetes resource.
+The `GameServer` custom resource defines a dedicated game server instance managed by the gobehost-operator. It encapsulates the full lifecycle of a game server — from provisioning storage and networking through runtime configuration — into a single declarative Kubernetes resource. Backups are managed separately via the `GameServerBackup` CRD.
 
 The operator reconciles a `GameServer` through the following lifecycle phases:
 
@@ -45,7 +45,7 @@ The `GameServer` resource uses a finalizer (`games.gobehost.com/finalizer`) to e
 | `storage` | [StorageSpec](#storagespec) | Yes | Persistent volume configuration. |
 | `network` | [NetworkSpec](#networkspec) | Yes | Network and port exposure configuration. |
 | `server` | [ServerSpec](#serverspec) | No | Game-specific server settings. |
-| `backup` | [BackupSpec](#backupspec) | No | Backup schedule and retention. |
+
 | `scheduling` | [SchedulingSpec](#schedulingspec) | No | Node placement constraints. |
 | `security` | [SecuritySpec](#securityspec) | No | Pod security configuration. |
 
@@ -108,14 +108,6 @@ The `GameServer` resource uses a finalizer (`games.gobehost.com/finalizer`) to e
 | `gameMode` | `string` | No | Game mode (e.g. `survival`, `creative`, `adventure`). |
 | `pvp` | `boolean` | No | Enable player-vs-player combat. |
 | `onlineMode` | `boolean` | No | Enable online authentication. |
-
-### BackupSpec
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `schedule` | `string` | Yes* | Cron schedule expression (e.g. `0 */6 * * *`). *Required only when the `backup` section is present. |
-| `retention` | `integer` | No | Number of backups to retain. **Default:** `3`. |
-| `storageClass` | `string` | No | StorageClass for backup volumes. |
 
 ### SchedulingSpec
 
@@ -280,7 +272,6 @@ The mutating webhook sets the following defaults on create and update:
 | `spec.security.fsGroup` | `1000` |
 | `spec.security.seccompProfile` | `RuntimeDefault` |
 | `spec.security.dropAllCapabilities` | `true` |
-| `spec.backup.retention` | `3` |
 
 If `spec.security` is omitted entirely, the webhook creates it with all security defaults applied.
 
