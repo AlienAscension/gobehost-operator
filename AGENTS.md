@@ -1,5 +1,15 @@
 # gobehost-operator - AI Agent Guide
 
+## Quick Start for New Sessions
+
+Read these files to get full project context without reading the entire repo:
+
+1. **`docs/superpowers/STATE.md`** — Current project state: what's deployed, what's done, what's next, key decisions, known issues. **Update this at the end of every session.**
+2. **`docs/superpowers/CODING.md`** — Project-specific coding patterns, conventions, gotchas, and how-tos. Read once, reference as needed.
+3. **This file (AGENTS.md)** — General kubebuilder/operator workshop rules (scaffolding, testing, RBAC, etc.).
+
+The `docs/superpowers/` directory is gitignored — it's for internal planning and session continuity, not distribution.
+
 ## Project Structure
 
 **Single-group layout (default):**
@@ -69,6 +79,19 @@ make generate   # Regenerate DeepCopy methods
 make lint-fix   # Auto-fix code style
 make test       # Run unit tests
 ```
+
+**After adding/modifying a CRD:**
+1. Add or update `docs/crd/<kind>.md` (spec reference, status, examples, webhooks)
+2. Add entry to `mkdocs.yml` nav under CRD Reference
+3. Add sample at `config/samples/games_v1alpha1_<kind>.yaml`
+4. Update `docs/changelog.md`
+5. Update Helm chart CRDs/RBAC in `charts/gobehost-operator/`
+
+**Before release:**
+1. Bump version in `Makefile`, `Chart.yaml`, `values.yaml`
+2. Run `make chart-sync-version VERSION=vX.Y.Z`
+3. Update `docs/changelog.md` with version entry
+4. Commit, tag, push → CI builds image
 
 ## CLI Commands Cheat Sheet
 

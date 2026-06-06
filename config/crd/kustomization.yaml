@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/games.gobehost.com_gameservers.yaml
+- bases/games.gobehost.com_gameserverbackups.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
