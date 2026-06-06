@@ -69,7 +69,7 @@ func ResolveStorageConfig(backup *gamesv1alpha1.GameServerBackup, platformConfig
 	return cfg
 }
 
-const rcloneCommand = `/usr/bin/rclone copy /data ":s3,provider=Other,endpoint=$RCLONE_S3_ENDPOINT":$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`
+const rcloneCommand = `/usr/local/bin/rclone copy /data ":s3,provider=Other,endpoint=$RCLONE_S3_ENDPOINT":$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`
 
 func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0, 8)
