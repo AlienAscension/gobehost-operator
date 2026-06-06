@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: linusdb/gobehost
   pullPolicy: IfNotPresent
-  tag: "v0.4.5"
+  tag: "v0.4.6"
 
 nameOverride: ""
 fullnameOverride: ""
