@@ -72,10 +72,11 @@ func ResolveStorageConfig(backup *gamesv1alpha1.GameServerBackup, platformConfig
 const rcloneCommand = `/usr/bin/rclone copy /data ":s3,provider=Other,endpoint=$RCLONE_S3_ENDPOINT":$BACKUP_BUCKET/$BACKUP_PATH/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`
 
 func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) []corev1.EnvVar {
-	env := []corev1.EnvVar{
-		{Name: "RCLONE_S3_PROVIDER", Value: "Other"},
-		{Name: "RCLONE_S3_ENDPOINT", Value: cfg.Endpoint},
-		{Name: "RCLONE_S3_ACCESS_KEY_ID", ValueFrom: &corev1.EnvVarSource{
+	env := make([]corev1.EnvVar, 0, 8)
+	env = append(env,
+		corev1.EnvVar{Name: "RCLONE_S3_PROVIDER", Value: "Other"},
+		corev1.EnvVar{Name: "RCLONE_S3_ENDPOINT", Value: cfg.Endpoint},
+		corev1.EnvVar{Name: "RCLONE_S3_ACCESS_KEY_ID", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
@@ -83,7 +84,7 @@ func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) [
 				Key: "S3_ACCESS_KEY",
 			},
 		}},
-		{Name: "RCLONE_S3_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: "RCLONE_S3_SECRET_ACCESS_KEY", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cfg.SecretName,
@@ -91,9 +92,9 @@ func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) [
 				Key: "S3_SECRET_KEY",
 			},
 		}},
-		{Name: "BACKUP_PATH", Value: cfg.Path},
-		{Name: "BACKUP_BUCKET", Value: cfg.Bucket},
-	}
+		corev1.EnvVar{Name: "BACKUP_PATH", Value: cfg.Path},
+		corev1.EnvVar{Name: "BACKUP_BUCKET", Value: cfg.Bucket},
+	)
 
 	retention := int32(5)
 	if backup.Spec.Retention != nil {
@@ -116,7 +117,7 @@ func buildBackupEnv(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig) [
 	return env
 }
 
-func buildBackupPod(backup *gamesv1alpha1.GameServerBackup, env []corev1.EnvVar, pvcName string) corev1.PodSpec {
+func buildBackupPod(env []corev1.EnvVar, pvcName string) corev1.PodSpec {
 	const volumeName = "data"
 	container := corev1.Container{
 		Name:    "backup",
@@ -152,7 +153,7 @@ func buildBackupPod(backup *gamesv1alpha1.GameServerBackup, env []corev1.EnvVar,
 
 func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, targetKind, targetName, pvcName string) *batchv1.CronJob {
 	env := buildBackupEnv(backup, cfg)
-	podSpec := buildBackupPod(backup, env, pvcName)
+	podSpec := buildBackupPod(env, pvcName)
 	labels := GameServerBackupLabels(backup)
 
 	return &batchv1.CronJob{
@@ -184,7 +185,7 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 
 func BuildBackupOnDeleteJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, targetKind, targetName, pvcName string) *batchv1.Job {
 	env := buildBackupEnv(backup, cfg)
-	podSpec := buildBackupPod(backup, env, pvcName)
+	podSpec := buildBackupPod(env, pvcName)
 	labels := GameServerBackupLabels(backup)
 
 	return &batchv1.Job{
