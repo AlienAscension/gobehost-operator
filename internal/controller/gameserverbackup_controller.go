@@ -232,6 +232,7 @@ func (r *GameServerBackupReconciler) reconcileCronJob(ctx context.Context, backu
 	} else {
 		op, err := controllerutil.CreateOrUpdate(ctx, r.Client, existingCJ, func() error {
 			existingCJ.Spec.Schedule = cj.Spec.Schedule
+			existingCJ.Spec.ConcurrencyPolicy = cj.Spec.ConcurrencyPolicy
 			existingCJ.Spec.SuccessfulJobsHistoryLimit = cj.Spec.SuccessfulJobsHistoryLimit
 			existingCJ.Spec.FailedJobsHistoryLimit = cj.Spec.FailedJobsHistoryLimit
 			existingCJ.Spec.JobTemplate = cj.Spec.JobTemplate

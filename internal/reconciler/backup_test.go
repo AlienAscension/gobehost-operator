@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -237,6 +238,11 @@ var _ = Describe("BuildCronJob", func() {
 	It("should set restart policy to OnFailure", func() {
 		cj := BuildCronJob(backup, cfg, "GameServer", "my-server", "data-my-server-0")
 		Expect(cj.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy).To(Equal(corev1.RestartPolicyOnFailure))
+	})
+
+	It("should set concurrency policy to Replace", func() {
+		cj := BuildCronJob(backup, cfg, "GameServer", "my-server", "data-my-server-0")
+		Expect(cj.Spec.ConcurrencyPolicy).To(Equal(batchv1.ReplaceConcurrent))
 	})
 })
 

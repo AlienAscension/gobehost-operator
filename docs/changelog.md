@@ -2,6 +2,12 @@
 
 All notable changes to the GobeHost Operator are documented here.
 
+## v0.4.7 - 2026-07-19
+
+### Fixed
+
+- **Backup CronJob concurrency**: Set `concurrencyPolicy: Replace` on backup CronJobs so a new scheduled run replaces any still-running job instead of running concurrently. Prevents overlapping backups from piling up and potentially corrupting data. The field is now also synced during `CreateOrUpdate` reconciliation.
+
 ## v0.4.6 - 2026-06-06
 
 ### Fixed

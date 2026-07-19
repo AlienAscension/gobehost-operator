@@ -165,6 +165,7 @@ func BuildCronJob(backup *gamesv1alpha1.GameServerBackup, cfg *BackupConfig, tar
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule:                   backup.Spec.Schedule,
+			ConcurrencyPolicy:          batchv1.ReplaceConcurrent,
 			SuccessfulJobsHistoryLimit: ptr.To(int32(3)),
 			FailedJobsHistoryLimit:     ptr.To(int32(3)),
 			JobTemplate: batchv1.JobTemplateSpec{
